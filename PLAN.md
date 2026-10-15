@@ -143,7 +143,27 @@ formats (`"";"";"";"Pnn"`) that render blank; after writing, the zip is opened w
 
 ## Template changes
 
-(Recorded in phase 4 after running the template checks.)
+The template checks (no cycles, A01 the only start, H08 the only finish, no open ends) passed
+as given. The critical-path check did not: with the brief's data the path ran
+D04 → L02 → L04 → L05 (regulator) → S06 sales launch → S07 pre-sales → F07 loan closing, so
+entitlements and permitting had 7 days of float.
+
+Change (data only, durations untouched): **L02 "Draft declaration / CC&Rs & bylaws" and L03
+"Association budget & reserve study" now follow `D04 SS+20d` instead of `D04` (FS)**, i.e. condo
+counsel and the reserve consultant start once design development is 20 days in, which is common
+practice. The critical path now runs A01–A04 → A09 → D01 → D02 → E04–E09 (entitlements) → D06/D07
+→ P01–P05 (permitting) → F07/F08 (loan closing) → C01–C25 (construction) → X02/X03 (C of O) → L09
+→ H04/H05 (closings) → H07/H08 (closeout). Sales launch keeps 22 working days of float.
+
+E10's name is "Appeal period (30 calendar days)" and it uses the 7-day calendar.
+
+## Persistence
+
+IndexedDB database `condo-gantt`, store `projects`: `project:<id>` holds a versioned
+`{ schemaVersion, app, project }` record (same shape as the `.gantt.json` export) and `index`
+holds the list metadata. Autosave runs 500 ms after the last change and is flushed on `pagehide`
+and when leaving a project. All loads go through `readProjectFile`, which validates, repairs and
+migrates. URL hash routing: `#/` = list, `#/p/<id>` = project (so a reload reopens it).
 
 ## Dependencies
 
