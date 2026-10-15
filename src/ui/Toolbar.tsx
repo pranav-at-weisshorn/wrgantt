@@ -227,6 +227,14 @@ export function Toolbar() {
         <Icon name="baseline" size={14} /> Baseline
       </button>
       <button
+        className={`btn small${prefs.showLinks ? ' active' : ''}`}
+        title={prefs.showLinks ? 'Hide link arrows' : 'Show link arrows'}
+        onClick={() => s.setPrefs({ showLinks: !prefs.showLinks })}
+        data-testid="toggle-links"
+      >
+        <Icon name="link" size={14} /> Links
+      </button>
+      <button
         className="btn small"
         onClick={s.collapseToPhases}
         title="Collapse to phases (executive view)"
@@ -272,7 +280,7 @@ export function Toolbar() {
         title="Status date — click to change"
         onClick={() => s.setDialog({ kind: 'progress' })}
       >
-        <Icon name="progress" size={14} /> Status {fmtIso(project.statusDate)}
+        <Icon name="progress" size={14} /> Status date {fmtIso(project.statusDate)}
       </button>
       <button className="btn small" onClick={() => s.setDialog({ kind: 'baselines' })}>
         <Icon name="flag" size={14} /> Baselines
@@ -292,6 +300,22 @@ export function Toolbar() {
         {derived.health.length > 0 && (
           <span className={`badge${errors ? ' error' : ''}`}>{derived.health.length}</span>
         )}
+      </button>
+      <button
+        className={`btn small${s.panel === 'history' ? ' active' : ''}`}
+        onClick={() => s.setPanel(s.panel === 'history' ? null : 'history')}
+        title="Every change, newest first; jump back to any point"
+        data-testid="history-button"
+      >
+        <Icon name="undo" size={14} /> History
+      </button>
+      <button
+        className={`btn small${s.panel === 'versions' ? ' active' : ''}`}
+        onClick={() => s.setPanel(s.panel === 'versions' ? null : 'versions')}
+        title="Saved versions of this project"
+        data-testid="versions-button"
+      >
+        <Icon name="flag" size={14} /> Versions
       </button>
       <span className="spacer" />
     </div>

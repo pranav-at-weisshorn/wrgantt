@@ -88,12 +88,14 @@ interface State {
   collapsed: Record<string, boolean>;
   filters: Filters;
   dialog: DialogState;
-  panel: 'health' | 'variance' | null;
+  panel: 'health' | 'variance' | 'history' | 'versions' | null;
   toasts: Toast[];
   prefs: Prefs;
   scrollRequest: ScrollRequest | null;
   printing: { collapsedToPhases: boolean } | null;
   contextMenu: ContextMenuState | null;
+  /** True when the project is open in another tab: edits, undo and autosave are disabled. */
+  readOnly: boolean;
   editRequest: EditRequest | null;
 
   openProject: (p: Project) => void;
@@ -119,6 +121,7 @@ interface State {
   setPrinting: (p: State['printing']) => void;
   openContextMenu: (m: ContextMenuState | null) => void;
   requestEdit: (taskId: string) => void;
+  setReadOnly: (readOnly: boolean) => void;
 }
 
 let toastSeq = 0;
@@ -138,6 +141,7 @@ export const useStore = create<State>()(
     scrollRequest: null,
     printing: null,
     contextMenu: null,
+    readOnly: false,
     editRequest: null,
 
     openProject: (p) => {
@@ -151,6 +155,7 @@ export const useStore = create<State>()(
         collapsed: {},
         filters: EMPTY_FILTERS,
         dialog: null,
+        readOnly: false,
       });
     },
 
@@ -160,6 +165,11 @@ export const useStore = create<State>()(
     commit: (label, recipe, opts = {}) => {
       const prev = get().project;
       if (!prev) return { ok: false, error: 'No project open' };
+      if (get().readOnly) {
+        const error = 'This project is open in another tab, so it is read-only here';
+        if (!opts.quiet) get().toast(error, 'error');
+        return { ok: false, error };
+      }
       let next: Project;
       try {
         next = produce(prev, (d) => {
@@ -190,8 +200,8 @@ export const useStore = create<State>()(
     },
 
     undo: () => {
-      const { past, project } = get();
-      if (!past.length || !project) return;
+      const { past, project, readOnly } = get();
+      if (!past.length || !project || readOnly) return;
       const entry = past[past.length - 1];
       set((s) => {
         s.past.pop();
@@ -201,8 +211,8 @@ export const useStore = create<State>()(
     },
 
     redo: () => {
-      const { future, project } = get();
-      if (!future.length || !project) return;
+      const { future, project, readOnly } = get();
+      if (!future.length || !project || readOnly) return;
       const entry = future[future.length - 1];
       set((s) => {
         s.future.pop();
@@ -267,6 +277,7 @@ export const useStore = create<State>()(
 
     setPrinting: (printing) => set({ printing }),
     openContextMenu: (contextMenu) => set({ contextMenu }),
+    setReadOnly: (readOnly) => set({ readOnly }),
     requestEdit: (taskId) =>
       set({ editRequest: { taskId, col: 'name', nonce: Date.now() + Math.random() } }),
   })),

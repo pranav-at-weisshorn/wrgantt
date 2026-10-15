@@ -10,6 +10,8 @@ import {
   type DepType,
   type Project,
   type Task,
+  type TaskStatus,
+  TASK_STATUSES,
 } from '../engine';
 
 /** Version of the persisted / exported project format. Bump and add a migration on change. */
@@ -100,6 +102,7 @@ export function normaliseProject(raw: unknown): Project {
       percentComplete: Math.max(0, Math.min(100, num(t.percentComplete))),
     };
     if (typeof t.templateKey === 'string') task.templateKey = t.templateKey;
+    if (TASK_STATUSES.includes(t.status as TaskStatus)) task.status = t.status as TaskStatus;
     if (typeof t.phaseColor === 'string') {
       task.phaseColor = LEGACY_PHASE_COLORS[t.phaseColor.toLowerCase()] ?? t.phaseColor;
     }

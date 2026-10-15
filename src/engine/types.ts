@@ -10,6 +10,8 @@ export interface Dependency {
   lagUnit: LagUnit;
 }
 
+export type TaskStatus = 'notStarted' | 'inProgress' | 'onHold' | 'blocked' | 'complete';
+
 export type ConstraintType = 'ASAP' | 'SNET' | 'SNLT' | 'FNET' | 'FNLT' | 'MSO' | 'MFO';
 
 export interface Constraint {
@@ -59,6 +61,8 @@ export interface Task {
   phaseColor?: string;
 
   percentComplete: number;
+  /** User-set status; see `statusOf` for the effective value (progress takes precedence). */
+  status?: TaskStatus;
   actualStart?: string;
   actualFinish?: string;
 

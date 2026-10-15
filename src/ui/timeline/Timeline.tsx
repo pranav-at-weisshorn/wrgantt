@@ -236,6 +236,7 @@ export function Timeline(props: Props) {
 
   const links = useMemo(() => {
     const out: { id: string; d: string; crit: boolean }[] = [];
+    if (!prefs.showLinks) return out;
     for (const dep of project.dependencies) {
       const ia = rowIndex.get(dep.predecessorId);
       const ib = rowIndex.get(dep.successorId);
@@ -249,7 +250,17 @@ export function Timeline(props: Props) {
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project.dependencies, rowIndex, rows, first, last, scale, showBl, prefs.showCritical]);
+  }, [
+    project.dependencies,
+    rowIndex,
+    rows,
+    first,
+    last,
+    scale,
+    showBl,
+    prefs.showCritical,
+    prefs.showLinks,
+  ]);
 
   // ------------------------------------------------------------------ render pieces
   const tiers = TIERS[scale.zoom];

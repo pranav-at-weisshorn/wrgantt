@@ -24,6 +24,7 @@ export interface Prefs {
   showCritical: boolean;
   criticalStyle: 'fill' | 'outline';
   showBaseline: boolean;
+  showLinks: boolean;
   showLabels: boolean;
   columns: Record<ColumnKey, boolean>;
   gridWidth: number;
@@ -34,6 +35,7 @@ export const DEFAULT_PREFS: Prefs = {
   showCritical: true,
   criticalStyle: 'fill',
   showBaseline: true,
+  showLinks: true,
   showLabels: true,
   columns: {
     id: true,
