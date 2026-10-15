@@ -1,6 +1,9 @@
 import { useStore } from '../../store/store';
+import { BaselineDialog } from './BaselineDialog';
 import { LinkDialog } from './LinkDialog';
 import { Modal } from './Modal';
+import { ProgressDialog } from './ProgressDialog';
+import { SettingsDialog } from './SettingsDialog';
 import { TaskDialog } from './TaskDialog';
 
 export function DialogHost() {
@@ -12,6 +15,12 @@ export function DialogHost() {
       return <TaskDialog key={dialog.taskId} taskId={dialog.taskId} tab={dialog.tab} />;
     case 'link':
       return <LinkDialog key={dialog.depId} depId={dialog.depId} />;
+    case 'settings':
+      return <SettingsDialog />;
+    case 'baselines':
+      return <BaselineDialog />;
+    case 'progress':
+      return <ProgressDialog />;
     case 'confirm':
       return (
         <Modal

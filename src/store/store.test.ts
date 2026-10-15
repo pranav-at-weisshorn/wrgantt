@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ProjectBuilder } from '../engine/testkit';
 import { derive } from './derive';
+import { isoToDay } from '../engine';
 import {
   addLink,
+  applyProgress,
+  onSchedulePercent,
   deleteTasks,
   indentTask,
   insertTask,
@@ -159,6 +162,22 @@ describe('structure edits', () => {
     S().undo();
     expect(P().tasks).toHaveLength(4);
     expect(P().dependencies).toHaveLength(4);
+  });
+});
+
+describe('progress', () => {
+  it('on-schedule progress uses the current plan up to a new status date', () => {
+    const b = open();
+    // A runs days 0-5; at day 3 it should be 60 % done; B (5-8) not started.
+    const a = onSchedulePercent(P(), 'A', isoToDay(b.day(3)))!;
+    expect(a).toEqual({ id: 'A', percentComplete: 60, actualStart: b.day(0) });
+    expect(onSchedulePercent(P(), 'B', isoToDay(b.day(3)))!.percentComplete).toBe(0);
+    applyProgress([a], b.day(3));
+    expect(P().statusDate).toBe(b.day(3));
+    expect(calc('A').ef - isoToDay(b.day(0))).toBe(5); // 2 days left from day 3
+    S().undo();
+    expect(P().statusDate).toBe(b.day(0));
+    expect(task('A').percentComplete).toBe(0);
   });
 });
 

@@ -345,8 +345,9 @@ export interface ProgressEntry {
   actualFinish?: string;
 }
 
-export function applyProgress(entries: ProgressEntry[]) {
+export function applyProgress(entries: ProgressEntry[], statusDate?: string) {
   return st().commit('Update progress', (d) => {
+    if (statusDate) d.statusDate = statusDate;
     for (const e of entries) {
       const t = d.tasks.find((x) => x.id === e.id);
       if (!t) continue;
@@ -363,11 +364,15 @@ export function applyProgress(entries: ProgressEntry[]) {
  * "On schedule" progress for a task as of the status date: the share of its working days
  * scheduled before the status date.
  */
-export function onSchedulePercent(project: Project, id: string): ProgressEntry | null {
+export function onSchedulePercent(
+  project: Project,
+  id: string,
+  status = isoToDay(project.statusDate),
+): ProgressEntry | null {
+  // Uses the current schedule; `status` is the cut-off (e.g. a new status date being entered).
   const { schedule } = derive(project);
   const c = schedule.calc.get(id);
   if (!c) return null;
-  const status = isoToDay(project.statusDate);
   if (c.es >= status) return { id, percentComplete: 0 };
   if (c.ef <= status) {
     return {
