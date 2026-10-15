@@ -165,6 +165,25 @@ holds the list metadata. Autosave runs 500 ms after the last change and is flush
 and when leaving a project. All loads go through `readProjectFile`, which validates, repairs and
 migrates. URL hash routing: `#/` = list, `#/p/<id>` = project (so a reload reopens it).
 
+## Import / export decisions
+
+- `.gantt.json`: `{ schemaVersion: 1, app, exportedAt, project }`; tasks carry their computed
+  `calc` for consumers. Import validates/repairs, ignores `calc`, and always creates a new
+  project (fresh id) so nothing is overwritten. A future schema bump adds a migration in
+  `src/io/schema.ts`; files from a newer version are refused with a clear message.
+- CSV import: header names matched case-insensitively (Name required). **Predecessors refer to
+  CSV data row numbers** (1 = first row after the header) and use the normal syntax. **Parent
+  WBS is the WBS the parent gets in the imported outline** (`1`, `2.3`); parents must come before
+  children. Bad durations, unknown parents/rows and links that would close a loop are skipped
+  with warnings; the rest is imported.
+- Excel: sheet "Tasks" (all columns, names indented with spaces, real date cells, autofilter),
+  sheet "Gantt (weekly)" (one column per week, cells filled with the phase colour, red for
+  critical, dark grey for summaries, ◆ for milestones).
+- MS Project XML (stretch goal, done): calendars with holidays, outline, durations, links with
+  lags (wd → days, ed → elapsed days), constraints, actuals and % complete.
+- Print: arrows are not printed; the print view scales the Gantt strip to the remaining page
+  width, so milestone diamonds are slightly stretched.
+
 ## Dependencies
 
 As in the brief. SheetJS is installed from the official SheetJS CDN tarball (0.20.3), because

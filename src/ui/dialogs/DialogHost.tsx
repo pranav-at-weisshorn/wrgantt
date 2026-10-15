@@ -2,6 +2,7 @@ import { useStore } from '../../store/store';
 import { BaselineDialog } from './BaselineDialog';
 import { LinkDialog } from './LinkDialog';
 import { Modal } from './Modal';
+import { PrintDialog } from './PrintDialog';
 import { ProgressDialog } from './ProgressDialog';
 import { SettingsDialog } from './SettingsDialog';
 import { TaskDialog } from './TaskDialog';
@@ -21,6 +22,8 @@ export function DialogHost() {
       return <BaselineDialog />;
     case 'progress':
       return <ProgressDialog />;
+    case 'print':
+      return <PrintDialog />;
     case 'confirm':
       return (
         <Modal
