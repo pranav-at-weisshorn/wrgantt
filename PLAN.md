@@ -189,3 +189,15 @@ migrates. URL hash routing: `#/` = list, `#/p/<id>` = project (so a reload reope
 As in the brief. SheetJS is installed from the official SheetJS CDN tarball (0.20.3), because
 the npm registry copy (0.18.5) is unmaintained. Playwright runs against the installed Microsoft
 Edge (`channel: 'msedge'`) to avoid downloading a browser.
+
+## Verification (phase 7)
+
+- `npm test`: 85 Vitest tests (engine spec tests 1–9 plus edge cases, store/undo, persistence
+  format, import/export) — all pass.
+- `npm run test:e2e`: Playwright smoke test (template → change A03 duration → A04 moves two
+  weeks, project finish moves from Wed 19 Dec 29 to Wed 02 Jan 30 → undo restores) — passes.
+- Performance, 500 generated tasks / 800 links: engine recalculation median 1.4 ms, max 3.3 ms
+  (budget 100 ms); in the browser an edit is recalculated and painted in ~21 ms; scrolling runs
+  at a median 16 ms/frame (p95 21 ms) thanks to row virtualisation.
+- `npm run build`: type-checks and builds; SheetJS is loaded on demand (only for Excel export
+  and CSV import), keeping the main bundle at ~117 kB gzipped.

@@ -22,7 +22,7 @@ export function FileMenu() {
         <>
           <div className="menu-title">Export</div>
           <button onClick={() => (close(), exportJson(project))}>Project file (.gantt.json)</button>
-          <button onClick={() => (close(), exportExcel(project))}>
+          <button onClick={() => (close(), void exportExcel(project))}>
             Excel (.xlsx): tasks + weekly Gantt
           </button>
           <button onClick={() => (close(), exportMsProject(project))}>Microsoft Project XML</button>

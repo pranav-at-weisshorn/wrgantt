@@ -1,6 +1,4 @@
 import type { Project } from '../engine';
-import { projectFromCsv } from '../io/csv';
-import { buildWorkbook } from '../io/excel';
 import { downloadBlob, pickFile, safeFileName } from '../io/files';
 import { projectFromJson, projectToJson } from '../io/json';
 import { projectToMsProjectXml } from '../io/msproject';
@@ -18,7 +16,9 @@ export function exportJson(project: Project) {
   );
 }
 
-export function exportExcel(project: Project) {
+export async function exportExcel(project: Project) {
+  // SheetJS is large; load it only when needed.
+  const { buildWorkbook } = await import('../io/excel');
   const bytes = buildWorkbook(project, derive(project));
   downloadBlob(
     bytes as BlobPart,
@@ -43,6 +43,7 @@ export async function importProjectFile(): Promise<Project | null> {
   const base = file.name.replace(/\.(gantt\.json|json|csv)$/i, '');
   try {
     if (/\.csv$/i.test(file.name)) {
+      const { projectFromCsv } = await import('../io/csv');
       const { project, warnings } = projectFromCsv(text, base);
       if (warnings.length) {
         toast(
