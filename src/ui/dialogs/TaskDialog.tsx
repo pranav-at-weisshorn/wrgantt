@@ -4,15 +4,22 @@ import {
   days,
   DEP_TYPE_HELP,
   DEP_TYPE_LABEL,
+  dayToIso,
   displayFinishDay,
   newId,
+  rollUpStatus,
+  statusOf,
+  STATUS_LABEL,
+  TASK_STATUSES,
   type ConstraintType,
   type Dependency,
   type DepType,
   type LagUnit,
   type Task,
+  type TaskStatus,
 } from '../../engine';
 import { derive } from '../../store/derive';
+import { normaliseStatus, quoted, statusFields } from '../../store/ops';
 import { useStore } from '../../store/store';
 import { fmtDay, parseDuration } from '../format';
 import { Modal } from './Modal';
@@ -45,6 +52,8 @@ export function TaskDialog({ taskId, tab: initialTab }: { taskId: string; tab?: 
     cDate: task?.constraint.date ?? '',
     responsible: task?.responsible ?? '',
     pct: String(task?.percentComplete ?? 0),
+    /** Stored status (On hold, Blocked, In progress); the others follow from progress. */
+    status: task?.status as TaskStatus | undefined,
     actualStart: task?.actualStart ?? '',
     actualFinish: task?.actualFinish ?? '',
     notes: task?.notes ?? '',
@@ -66,6 +75,34 @@ export function TaskDialog({ taskId, tab: initialTab }: { taskId: string; tab?: 
 
   const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
 
+  // Status as it will be once saved: progress wins where it is unambiguous.
+  const formStatus: TaskStatus = isSummary
+    ? rollUpStatus(outline.leavesOf(taskId).map((id) => statusOf(outline.byId.get(id)!)))
+    : statusOf({
+        status: form.status,
+        percentComplete: Number(form.pct) || 0,
+        actualStart: form.actualStart || undefined,
+        actualFinish: form.actualFinish || undefined,
+      });
+
+  const changeStatus = (status: TaskStatus) => {
+    const f = statusFields(
+      {
+        percentComplete: Math.round(Number(form.pct) || 0),
+        actualStart: form.actualStart || undefined,
+        actualFinish: form.actualFinish || undefined,
+      },
+      status,
+      c ? { start: c.earlyStart, finish: dayToIso(displayFinishDay(c)) } : undefined,
+    );
+    set({
+      pct: String(f.percentComplete),
+      actualStart: f.actualStart ?? '',
+      actualFinish: f.actualFinish ?? '',
+      status: f.status,
+    });
+  };
+
   const save = () => {
     const dur = parseDuration(form.duration);
     if (!isSummary && dur === null)
@@ -77,8 +114,9 @@ export function TaskDialog({ taskId, tab: initialTab }: { taskId: string; tab?: 
     if (form.actualStart && form.actualFinish && form.actualFinish < form.actualStart) {
       return setError('Actual finish is before actual start');
     }
+    const statusChanged = !isSummary && formStatus !== statusOf(task);
     const res = commit(
-      'Edit task',
+      `Edited ${quoted(task.name)}${statusChanged ? `, status: ${STATUS_LABEL[formStatus]}` : ''}`,
       (d) => {
         const t = d.tasks.find((x) => x.id === taskId) as Draft<Task>;
         t.name = form.name.trim() || 'Untitled';
@@ -98,6 +136,14 @@ export function TaskDialog({ taskId, tab: initialTab }: { taskId: string; tab?: 
             // Completed without an actual finish: take the scheduled one.
             t.actualStart = t.actualStart ?? c.earlyStart;
           }
+          if (
+            form.status === 'inProgress' ||
+            form.status === 'onHold' ||
+            form.status === 'blocked'
+          ) {
+            t.status = form.status;
+          } else delete t.status;
+          normaliseStatus(t);
         }
         d.dependencies = [
           ...d.dependencies.filter((x) => x.predecessorId !== taskId && x.successorId !== taskId),
@@ -343,6 +389,23 @@ export function TaskDialog({ taskId, tab: initialTab }: { taskId: string; tab?: 
                 <option key={p} value={p} />
               ))}
             </datalist>
+            <label htmlFor="td-status">Status</label>
+            <div className="row-inline">
+              <select
+                id="td-status"
+                className="select"
+                value={formStatus}
+                disabled={isSummary}
+                onChange={(e) => changeStatus(e.target.value as TaskStatus)}
+              >
+                {TASK_STATUSES.map((st) => (
+                  <option key={st} value={st}>
+                    {STATUS_LABEL[st]}
+                  </option>
+                ))}
+              </select>
+              {isSummary && <span className="hint">Rolled up from subtasks</span>}
+            </div>
             <label htmlFor="td-pct">% complete</label>
             <input
               id="td-pct"

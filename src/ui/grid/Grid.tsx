@@ -7,7 +7,14 @@ import {
   type RefObject,
   type UIEvent,
 } from 'react';
-import { activeBaseline, CONSTRAINT_LABEL, type Project } from '../../engine';
+import {
+  activeBaseline,
+  CONSTRAINT_LABEL,
+  STATUS_LABEL,
+  TASK_STATUSES,
+  type Project,
+  type TaskStatus,
+} from '../../engine';
 import type { Derived } from '../../store/derive';
 import {
   indentTask,
@@ -15,21 +22,24 @@ import {
   moveTask,
   moveTaskBy,
   outdentTask,
+  quoted,
   renameTask,
   setDuration,
   setFinishDate,
   setPercentComplete,
   setPredecessorsText,
   setStartDate,
+  setStatus,
   updateTask,
 } from '../../store/ops';
 import type { ColumnKey } from '../../store/prefs';
 import { useStore, type CommitResult } from '../../store/store';
-import { editValue, type ColumnCtx, type ColumnDef } from '../columns';
+import { editValue, rowSignal, rowStatus, type ColumnCtx, type ColumnDef } from '../columns';
 import { fmtIso, parseDateInput, parseDuration } from '../format';
 import { Icon } from '../icons';
 import { HEADER_H, ROW_H, type Row } from '../rows';
 import { confirmDeleteTasks } from '../actions';
+import { SignalChip, StatusChip } from '../StatusChip';
 
 interface Props {
   project: Project;
@@ -72,7 +82,9 @@ export function Grid(props: Props) {
   const [rowDrag, setRowDrag] = useState<RowDrag | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement & HTMLSelectElement>(null);
+  /** True while a status select is being driven by the keyboard (arrows, type-ahead). */
+  const selectByKey = useRef(false);
   const dragRef = useRef<RowDrag | null>(null);
   dragRef.current = rowDrag;
 
@@ -84,10 +96,12 @@ export function Grid(props: Props) {
   useLayoutEffect(() => {
     if (editing && inputRef.current && document.activeElement !== inputRef.current) {
       inputRef.current.focus();
-      if (editing.selectAll) inputRef.current.select();
-      else {
-        const n = inputRef.current.value.length;
-        inputRef.current.setSelectionRange(n, n);
+      if (inputRef.current instanceof HTMLInputElement) {
+        if (editing.selectAll) inputRef.current.select();
+        else {
+          const n = inputRef.current.value.length;
+          inputRef.current.setSelectionRange(n, n);
+        }
       }
     }
   }, [editing]);
@@ -98,6 +112,28 @@ export function Grid(props: Props) {
   }, [rowIndex, editing]);
 
   const focusGrid = () => rootRef.current?.focus({ preventScroll: true });
+
+  /**
+   * The editor was closed on purpose (Enter, Esc, a committed edit): the blur that follows
+   * must not commit again, least of all after Esc. Cleared when the next editor opens.
+   */
+  const skipBlur = useRef(false);
+  const closeEditor = () => {
+    skipBlur.current = true;
+    setEditing(null);
+  };
+  useEffect(() => {
+    if (editing) skipBlur.current = false;
+  }, [editing]);
+  const onEditorBlur = () => {
+    if (skipBlur.current) {
+      skipBlur.current = false;
+      return;
+    }
+    // Commit when focus leaves (e.g. clicking elsewhere); keep the editor if invalid.
+    if (editing?.error) return;
+    commitEdit();
+  };
 
   // Open the name editor when asked from outside (context menu "Insert task…").
   const editRequest = useStore((s) => s.editRequest);
@@ -150,26 +186,32 @@ export function Grid(props: Props) {
     if (!canEdit(col, row)) return;
     select(row.id);
     setActiveCol(col.key);
+    let value = initial ?? editValue(col, row, ctx);
+    if (col.edit === 'status' && initial !== undefined) {
+      // Typing a letter picks the first status starting with it.
+      const typed = initial.toLowerCase();
+      value = TASK_STATUSES.find((s) => STATUS_LABEL[s].toLowerCase().startsWith(typed)) ?? value;
+    }
     setEditing({
       id: row.id,
       col: col.key,
-      value: initial ?? editValue(col, row, ctx),
-      selectAll: initial === undefined,
+      value,
+      selectAll: initial === undefined || col.edit === 'status',
     });
   };
 
-  const commitEdit = (): boolean => {
+  const commitEdit = (override?: string): boolean => {
     if (!editing) return true;
     const col = columns.find((c) => c.key === editing.col);
     const row = rows[rowIndex.get(editing.id) ?? -1];
     if (!col || !row) {
-      setEditing(null);
+      closeEditor();
       return true;
     }
-    const v = editing.value;
+    const v = override ?? editing.value;
     const original = editValue(col, row, ctx);
     if (v === original) {
-      setEditing(null);
+      closeEditor();
       return true;
     }
     let res: CommitResult = { ok: true };
@@ -178,10 +220,17 @@ export function Grid(props: Props) {
         res =
           col.key === 'name'
             ? renameTask(row.id, v)
-            : updateTask(row.id, { responsible: v.trim() }, 'Edit responsible');
+            : updateTask(
+                row.id,
+                { responsible: v.trim() },
+                `Responsible of ${quoted(row.task.name)}: ${v.trim() || 'none'}`,
+              );
         break;
       case 'notes':
-        res = updateTask(row.id, { notes: v }, 'Edit notes');
+        res = updateTask(row.id, { notes: v }, `Notes of ${quoted(row.task.name)} edited`);
+        break;
+      case 'status':
+        res = setStatus(row.id, v as TaskStatus);
         break;
       case 'duration': {
         const d = parseDuration(v);
@@ -217,7 +266,7 @@ export function Grid(props: Props) {
       setEditing({ ...editing, error: res.error ?? 'Invalid value', selectAll: false });
       return false;
     }
-    setEditing(null);
+    closeEditor();
     return true;
   };
 
@@ -229,7 +278,7 @@ export function Grid(props: Props) {
     setEditing({ id, col: 'name', value: 'New task', selectAll: true });
   };
 
-  const onEditorKey = (e: KeyboardEvent<HTMLInputElement>) => {
+  const onEditorKey = (e: KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       if (commitEdit()) {
@@ -238,7 +287,7 @@ export function Grid(props: Props) {
       }
     } else if (e.key === 'Escape') {
       e.preventDefault();
-      setEditing(null);
+      closeEditor();
       focusGrid();
     } else if (e.key === 'Tab') {
       e.preventDefault();
@@ -399,6 +448,10 @@ export function Grid(props: Props) {
       );
     } else if (col.key === 'indicators') {
       content = <Indicators row={row} />;
+    } else if (col.key === 'status') {
+      content = <StatusChip status={rowStatus(row, project)} />;
+    } else if (col.key === 'signal') {
+      content = <SignalChip signal={rowSignal(row, ctx)} />;
     } else {
       content = <span className="txt">{col.text(row, ctx)}</span>;
     }
@@ -429,7 +482,39 @@ export function Grid(props: Props) {
         title={col.key === 'name' ? row.task.name : undefined}
       >
         {content}
-        {isEditing && editing && (
+        {isEditing && editing && col.edit === 'status' && (
+          <select
+            ref={inputRef}
+            className="cell-editor"
+            value={editing.value}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (selectByKey.current) {
+                setEditing({ ...editing, value: v, error: undefined, selectAll: false });
+              } else if (commitEdit(v)) {
+                // Picked with the mouse: apply straight away.
+                focusGrid();
+              }
+            }}
+            onPointerDown={() => {
+              selectByKey.current = false;
+            }}
+            onKeyDown={(e) => {
+              selectByKey.current = e.key.startsWith('Arrow') || e.key.length === 1;
+              onEditorKey(e);
+            }}
+            onBlur={onEditorBlur}
+            aria-label={col.label}
+            data-testid={`editor-${col.key}`}
+          >
+            {TASK_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        )}
+        {isEditing && editing && col.edit !== 'status' && (
           <>
             <input
               ref={inputRef}
@@ -444,11 +529,7 @@ export function Grid(props: Props) {
                 })
               }
               onKeyDown={onEditorKey}
-              onBlur={() => {
-                // Commit when focus leaves (e.g. clicking elsewhere); keep the editor if invalid.
-                if (editing.error) return;
-                commitEdit();
-              }}
+              onBlur={onEditorBlur}
               aria-label={col.label}
               data-testid={`editor-${col.key}`}
             />

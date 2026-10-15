@@ -1,0 +1,92 @@
+.history-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.history-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.history-day {
+  margin: 14px 0 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: var(--track);
+  color: var(--fg-muted);
+}
+.history-entry {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  align-items: baseline;
+  column-gap: 8px;
+  width: 100%;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 12px;
+  text-align: left;
+}
+.history-entry:hover:not(:disabled) {
+  background: var(--row-hover);
+}
+.history-entry:disabled {
+  cursor: default;
+}
+.history-marker {
+  width: 7px;
+  height: 7px;
+  margin-left: 3px;
+  align-self: center;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.history-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.history-time {
+  color: var(--fg-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.history-now {
+  grid-column: 2;
+  justify-self: start;
+  margin-top: 2px;
+  padding: 0 6px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--accent);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: var(--track);
+}
+.history-entry.current {
+  background: var(--row-sel);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.history-entry.current .history-marker {
+  width: 9px;
+  height: 9px;
+  margin-left: 2px;
+  outline: 2px solid var(--accent-soft);
+}
+/* Undone steps (redo): greyed out, hollow marker. */
+.history-entry.undone {
+  color: var(--fg-faint);
+}
+.history-entry.undone .history-time {
+  color: var(--fg-faint);
+}
+.history-entry.undone .history-marker {
+  background: transparent;
+  border: 1px solid var(--fg-faint);
+}

@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { statusOf, STATUS_LABEL, TASK_STATUSES, type TaskStatus } from '../engine';
 import { derive } from '../store/derive';
 import {
   canMoveTask,
@@ -7,12 +8,13 @@ import {
   moveTaskBy,
   outdentTask,
   setDuration,
-  setPercentComplete,
+  setStatus,
   type InsertPosition,
 } from '../store/ops';
 import { useStore } from '../store/store';
 import { confirmDeleteTasks } from './actions';
 import { Icon, type IconName } from './icons';
+import { StatusChip } from './StatusChip';
 
 interface Item {
   label: string;
@@ -21,6 +23,10 @@ interface Item {
   disabled?: boolean;
   danger?: boolean;
   run: () => void;
+  /** A status choice: which status, and whether it is the current one. */
+  status?: { value: TaskStatus; checked: boolean };
+  /** Section title shown above this item. */
+  heading?: string;
 }
 
 /** Right-click menu for a task row or bar. */
@@ -136,10 +142,16 @@ export function ContextMenu() {
     ],
   ];
   if (!isSummary && c) {
+    const current = statusOf(task);
+    groups.push(
+      TASK_STATUSES.map((value, i) => ({
+        label: STATUS_LABEL[value],
+        heading: i === 0 ? 'Status' : undefined,
+        status: { value, checked: value === current },
+        run: () => setStatus(id, value),
+      })),
+    );
     groups.push([
-      c.percentComplete >= 100
-        ? { label: 'Mark as not started', icon: 'progress', run: () => setPercentComplete(id, 0) }
-        : { label: 'Mark as complete', icon: 'check', run: () => setPercentComplete(id, 100) },
       task.duration === 0
         ? { label: 'Turn into a 1-day task', icon: 'calendar', run: () => setDuration(id, 1) }
         : { label: 'Turn into a milestone', icon: 'flag', run: () => setDuration(id, 0) },
@@ -175,20 +187,37 @@ export function ContextMenu() {
         <div key={gi}>
           {gi > 0 && <hr />}
           {g.map((it) => (
-            <button
-              key={it.label}
-              role="menuitem"
-              disabled={it.disabled}
-              className={it.danger ? 'danger' : undefined}
-              onClick={() => {
-                close(null);
-                it.run();
-              }}
-            >
-              {it.icon ? <Icon name={it.icon} size={14} /> : <span style={{ width: 14 }} />}
-              {it.label}
-              {it.shortcut && <span className="shortcut">{it.shortcut}</span>}
-            </button>
+            <Fragment key={it.label}>
+              {it.heading && <div className="menu-title">{it.heading}</div>}
+              <button
+                role={it.status ? 'menuitemradio' : 'menuitem'}
+                aria-checked={it.status ? it.status.checked : undefined}
+                disabled={it.disabled}
+                className={[it.danger ? 'danger' : '', it.status ? 'status-item' : '']
+                  .filter(Boolean)
+                  .join(' ')}
+                onClick={() => {
+                  close(null);
+                  it.run();
+                }}
+                data-status={it.status?.value}
+              >
+                {it.status ? (
+                  <>
+                    <span className="check">
+                      {it.status.checked && <Icon name="check" size={14} />}
+                    </span>
+                    <StatusChip status={it.status.value} />
+                  </>
+                ) : (
+                  <>
+                    {it.icon ? <Icon name={it.icon} size={14} /> : <span style={{ width: 14 }} />}
+                    {it.label}
+                  </>
+                )}
+                {it.shortcut && <span className="shortcut">{it.shortcut}</span>}
+              </button>
+            </Fragment>
           ))}
         </div>
       ))}

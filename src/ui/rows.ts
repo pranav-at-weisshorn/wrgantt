@@ -2,6 +2,8 @@ import {
   activeBaseline,
   finishVariance,
   formatLink,
+  scheduleHealth,
+  statusOf,
   type Project,
   type Task,
   type TaskCalc,
@@ -32,7 +34,9 @@ export function filtersActive(f: Filters) {
     f.criticalOnly ||
     f.slipped ||
     f.inProgress ||
-    f.milestones
+    f.milestones ||
+    f.statuses.length ||
+    f.atRiskOrLate
   );
 }
 
@@ -69,11 +73,22 @@ export function computeRows(
       if (filters.phaseId && outline.phaseOf(id) !== filters.phaseId) continue;
       if (filters.responsible && t.responsible !== filters.responsible) continue;
       const leafOnly =
-        filters.criticalOnly || filters.slipped || filters.inProgress || filters.milestones;
+        filters.criticalOnly ||
+        filters.slipped ||
+        filters.inProgress ||
+        filters.milestones ||
+        filters.statuses.length > 0 ||
+        filters.atRiskOrLate;
       if (leafOnly && summary) continue;
       if (filters.criticalOnly && !c?.critical) continue;
       if (filters.inProgress && !(c && c.percentComplete > 0 && c.percentComplete < 100)) continue;
       if (filters.milestones && !c?.isMilestone) continue;
+      const status = statusOf(t);
+      if (filters.statuses.length && !filters.statuses.includes(status)) continue;
+      if (filters.atRiskOrLate) {
+        const health = scheduleHealth(status, c, finishVariance(project, c, bl?.tasks[id]));
+        if (health !== 'atRisk' && health !== 'late') continue;
+      }
       if (filters.slipped) {
         const v = finishVariance(project, c, bl?.tasks[id]);
         if (v === null || v <= 0) continue;

@@ -13,6 +13,8 @@ export type ColumnKey =
   | 'successors'
   | 'responsible'
   | 'percent'
+  | 'status'
+  | 'signal'
   | 'totalFloat'
   | 'baselineStart'
   | 'baselineFinish'
@@ -49,6 +51,8 @@ export const DEFAULT_PREFS: Prefs = {
     successors: false,
     responsible: true,
     percent: true,
+    status: true,
+    signal: false,
     totalFloat: true,
     baselineStart: false,
     baselineFinish: false,

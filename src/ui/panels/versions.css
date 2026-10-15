@@ -1,0 +1,72 @@
+.versions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.versions > .btn {
+  align-self: flex-start;
+}
+.versions .hint {
+  margin: 0;
+}
+.versions-save {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.version-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.version {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--bg-elev);
+}
+.version-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.version-title .input {
+  flex: 1;
+}
+.version-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.version-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 6px -8px -2px;
+}
+
+.compare .kpi {
+  grid-template-columns: 1fr 1fr;
+}
+.compare-kpi div {
+  min-width: 0;
+}
+.compare-names ul {
+  margin: 2px 0 8px;
+  padding-left: 18px;
+}
+.compare-table {
+  max-height: 340px;
+  overflow: auto;
+}
+.compare-table table td {
+  white-space: nowrap;
+}
+.compare-table table td:first-child {
+  white-space: normal;
+}

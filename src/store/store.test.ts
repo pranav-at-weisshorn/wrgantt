@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ProjectBuilder } from '../engine/testkit';
 import { derive } from './derive';
-import { isoToDay } from '../engine';
+import { isoToDay, statusOf } from '../engine';
 import { projectFromTemplate } from '../template/load';
 import { linkTexts } from '../ui/rows';
 import {
@@ -13,7 +13,10 @@ import {
   insertTask,
   insertTaskAt,
   canMoveTask,
+  deleteLink,
   moveTaskBy,
+  renameTask,
+  setStatus,
   moveTask,
   outdentTask,
   setDuration,
@@ -269,5 +272,154 @@ describe('history', () => {
     expect(S().future.length).toBe(1);
     setDuration('B', 9);
     expect(S().future.length).toBe(0);
+  });
+});
+
+describe('task status', () => {
+  it('Complete is one undoable step: 100 % with actual dates from the schedule', () => {
+    const depth = S().past.length;
+    expect(setStatus('A', 'complete').ok).toBe(true);
+    expect(S().past.length).toBe(depth + 1);
+    expect(S().past.at(-1)!.label).toBe('Status of “A”: Complete');
+    expect(task('A').percentComplete).toBe(100);
+    expect(task('A').actualStart).toBe(calc('A').earlyStart);
+    expect(task('A').actualFinish).toBeDefined();
+    expect(statusOf(task('A'))).toBe('complete');
+    S().undo();
+    expect(task('A').percentComplete).toBe(0);
+    expect(task('A').actualStart).toBeUndefined();
+    expect(task('A').actualFinish).toBeUndefined();
+  });
+
+  it('In progress sets the actual start to the scheduled start when not yet started', () => {
+    setStatus('B', 'inProgress');
+    expect(task('B').status).toBe('inProgress');
+    expect(task('B').actualStart).toBe(calc('B').earlyStart);
+    expect(task('B').percentComplete).toBe(0);
+    expect(statusOf(task('B'))).toBe('inProgress');
+    // An existing actual start is kept.
+    const before = task('B').actualStart;
+    setStatus('B', 'onHold');
+    setStatus('B', 'inProgress');
+    expect(task('B').actualStart).toBe(before);
+  });
+
+  it('On hold and Blocked only set the status', () => {
+    setStatus('C', 'blocked');
+    expect(task('C')).toMatchObject({ status: 'blocked', percentComplete: 0 });
+    expect(task('C').actualStart).toBeUndefined();
+    expect(statusOf(task('C'))).toBe('blocked');
+    setStatus('C', 'onHold');
+    expect(statusOf(task('C'))).toBe('onHold');
+    expect(S().past.at(-1)!.label).toBe('Status of “C”: On hold');
+  });
+
+  it('Not started resets progress, actuals and the stored status', () => {
+    setStatus('A', 'complete');
+    setStatus('A', 'notStarted');
+    expect(task('A').percentComplete).toBe(0);
+    expect(task('A').actualStart).toBeUndefined();
+    expect(task('A').actualFinish).toBeUndefined();
+    expect(task('A').status).toBeUndefined();
+    setStatus('A', 'blocked');
+    setStatus('A', 'notStarted');
+    expect(task('A').status).toBeUndefined();
+    expect(statusOf(task('A'))).toBe('notStarted');
+  });
+
+  it('a completed task set to On hold is reopened', () => {
+    setStatus('A', 'complete');
+    setStatus('A', 'onHold');
+    expect(task('A').percentComplete).toBeLessThan(100);
+    expect(task('A').actualFinish).toBeUndefined();
+    expect(statusOf(task('A'))).toBe('onHold');
+  });
+
+  it('% complete keeps On hold / Blocked unless it reaches 100 %', () => {
+    setStatus('B', 'blocked');
+    setPercentComplete('B', 40);
+    expect(statusOf(task('B'))).toBe('blocked');
+    expect(task('B').percentComplete).toBe(40);
+    setPercentComplete('B', 100);
+    expect(statusOf(task('B'))).toBe('complete');
+    expect(task('B').status).toBeUndefined();
+    // Reopening via 50 % does not bring the old Blocked back.
+    setPercentComplete('B', 50);
+    expect(statusOf(task('B'))).toBe('inProgress');
+  });
+
+  it('status survives undo and redo of other edits', () => {
+    setStatus('A', 'blocked');
+    setDuration('A', 8);
+    S().undo();
+    expect(statusOf(task('A'))).toBe('blocked');
+    S().undo();
+    expect(statusOf(task('A'))).toBe('notStarted');
+    S().redo();
+    expect(statusOf(task('A'))).toBe('blocked');
+  });
+});
+
+describe('descriptive history labels', () => {
+  it('describes common edits', () => {
+    setDuration('A', 20);
+    expect(S().past.at(-1)!.label).toBe('Duration of “A”: 20 days');
+    setDuration('A', 1);
+    expect(S().past.at(-1)!.label).toBe('Duration of “A”: 1 day');
+    renameTask('A', 'Appraisal');
+    expect(S().past.at(-1)!.label).toBe('Renamed “A” to “Appraisal”');
+    moveTaskBy('C', -1);
+    expect(S().past.at(-1)!.label).toBe('Moved “C” up');
+    const dep = P().dependencies.find((d) => d.predecessorId === 'A' && d.successorId === 'C')!;
+    const pred = rowOf('A');
+    const succ = rowOf('C');
+    deleteLink(dep.id);
+    expect(S().past.at(-1)!.label).toBe(`Link from ${pred} to ${succ} removed`);
+    deleteTasks(['D']);
+    expect(S().past.at(-1)!.label).toBe('Deleted “D”');
+    expect(S().past.at(-1)!.at).toMatch(/^\d{4}-\d\d-\d\dT/);
+  });
+});
+
+describe('undo history', () => {
+  it('jumps to any earlier or later state in one step', () => {
+    const start = P();
+    setDuration('A', 6);
+    setDuration('A', 7);
+    setDuration('B', 9);
+    S().jumpTo(0);
+    expect(task('A').duration).toBe(6);
+    expect(task('B').duration).toBe(3);
+    expect(S().past).toHaveLength(1);
+    expect(S().future).toHaveLength(2);
+    S().jumpTo(2);
+    expect(task('B').duration).toBe(9);
+    S().jumpTo(-1);
+    expect(P().tasks).toEqual(start.tasks);
+  });
+
+  it('read-only blocks edit, undo, redo and jump', () => {
+    setDuration('A', 6);
+    S().setReadOnly(true);
+    expect(setDuration('A', 9).ok).toBe(false);
+    S().undo();
+    S().jumpTo(-1);
+    S().clearHistory();
+    expect(task('A').duration).toBe(6);
+    expect(S().past).toHaveLength(1);
+    S().setReadOnly(false);
+  });
+
+  it('clearing history keeps the project', () => {
+    setDuration('A', 6);
+    S().undo();
+    S().clearHistory();
+    expect(S().past).toHaveLength(0);
+    expect(S().future).toHaveLength(0);
+    expect(task('A').duration).toBe(5);
+  });
+
+  it('caps at 5,000 entries', () => {
+    expect(HISTORY_LIMIT).toBe(5000);
   });
 });

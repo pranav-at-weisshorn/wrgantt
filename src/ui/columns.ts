@@ -2,15 +2,24 @@ import {
   days,
   displayFinishDay,
   finishVariance,
+  HEALTH_SIGNAL_LABEL,
   isoToDay,
+  rollUpStatus,
+  scheduleHealth,
+  statusOf,
+  STATUS_LABEL,
   type Baseline,
   type Project,
+  type ScheduleHealth,
+  type TaskStatus,
 } from '../engine';
+import { derive } from '../store/derive';
 import type { ColumnKey } from '../store/prefs';
 import { fmtDay, fmtIso, fmtSigned } from './format';
 import { linkTexts, type Row } from './rows';
 
-export type EditKind = 'text' | 'duration' | 'date' | 'finishDate' | 'preds' | 'percent' | 'notes';
+export type EditKind =
+  'text' | 'duration' | 'date' | 'finishDate' | 'preds' | 'percent' | 'notes' | 'status';
 
 export interface ColumnDef {
   key: ColumnKey;
@@ -28,6 +37,22 @@ export interface ColumnDef {
 export interface ColumnCtx {
   project: Project;
   baseline: Baseline | undefined;
+}
+
+/** Effective status of a row; a summary shows the roll-up of its subtasks. */
+export function rowStatus(row: Row, project: Project): TaskStatus {
+  if (!row.isSummary) return statusOf(row.task);
+  const { outline } = derive(project);
+  return rollUpStatus(outline.leavesOf(row.id).map((id) => statusOf(outline.byId.get(id)!)));
+}
+
+/** Schedule signal of a row, from its status and finish variance against the active baseline. */
+export function rowSignal(row: Row, ctx: ColumnCtx): ScheduleHealth {
+  return scheduleHealth(
+    rowStatus(row, ctx.project),
+    row.calc,
+    finishVariance(ctx.project, row.calc, ctx.baseline?.tasks[row.id]),
+  );
 }
 
 export const COLUMNS: ColumnDef[] = [
@@ -111,6 +136,22 @@ export const COLUMNS: ColumnDef[] = [
     text: (r) => (r.calc ? `${Math.round(r.calc.percentComplete)}%` : ''),
   },
   {
+    key: 'status',
+    label: 'Status',
+    width: 112,
+    hideable: true,
+    edit: 'status',
+    leafOnly: true,
+    text: (r, c) => STATUS_LABEL[rowStatus(r, c.project)],
+  },
+  {
+    key: 'signal',
+    label: 'Schedule',
+    width: 96,
+    hideable: true,
+    text: (r, c) => HEALTH_SIGNAL_LABEL[rowSignal(r, c)],
+  },
+  {
     key: 'totalFloat',
     label: 'Total float',
     width: 84,
@@ -161,6 +202,8 @@ export function editValue(col: ColumnDef, row: Row, ctx: ColumnCtx): string {
       return String(Math.round(row.task.percentComplete));
     case 'notes':
       return row.task.notes;
+    case 'status':
+      return statusOf(row.task);
     default:
       return col.text(row, ctx);
   }

@@ -1,0 +1,116 @@
+/* Status and schedule-signal chips (grid cells, menus). Colours come from the palette tokens. */
+
+.chip {
+  --chip: var(--fg-muted);
+  --chip-border: var(--chip);
+  --chip-text: var(--fg);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  height: 20px;
+  padding: 0 9px 0 7px;
+  border: 1px solid var(--chip-border);
+  border-radius: 10px;
+  color: var(--chip-text);
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.chip-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--chip);
+}
+.chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Status */
+.chip.status-notStarted {
+  --chip: var(--vf-sandstone);
+  --chip-border: var(--vf-sandstone);
+  --chip-text: var(--vf-mocca);
+}
+.chip.status-inProgress {
+  --chip: var(--vf-interior-warmth);
+  --chip-border: var(--vf-interior-warmth);
+}
+.chip.status-onHold {
+  --chip: var(--warn);
+  --chip-border: var(--warn);
+}
+.chip.status-blocked {
+  --chip: var(--crit);
+  --chip-border: var(--crit);
+}
+.chip.status-complete {
+  --chip: var(--ok);
+  --chip-border: var(--ok);
+}
+
+/* Schedule signal */
+.chip.signal-onTrack {
+  --chip: var(--ok);
+  --chip-border: var(--ok);
+}
+.chip.signal-atRisk {
+  --chip: var(--warn);
+  --chip-border: var(--warn);
+}
+.chip.signal-late {
+  --chip: var(--crit);
+  --chip-border: var(--crit);
+}
+.chip.signal-complete {
+  --chip: var(--fg-faint);
+  --chip-border: var(--border);
+  --chip-text: var(--fg-muted);
+}
+
+/* The grid shows chips in otherwise plain cells. */
+.cell[data-col='status'],
+.cell[data-col='signal'] {
+  overflow: visible;
+}
+.cell[data-col='status'] .chip,
+.cell[data-col='signal'] .chip {
+  min-width: 0;
+}
+/* Summary rows show a roll-up that cannot be edited: a lighter chip. */
+.grid-row.summary .cell[data-col='status'] .chip,
+.grid-row.summary .cell[data-col='signal'] .chip {
+  opacity: 0.85;
+}
+
+/* Inline status editor: a native select that fills the cell like the text editor. */
+select.cell-editor {
+  appearance: auto;
+  padding: 0 2px;
+  font: inherit;
+  color: var(--fg);
+}
+
+/* Status entries in the right-click menu. */
+.menu .status-item .chip {
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font-size: inherit;
+  line-height: inherit;
+}
+.menu .status-item .chip-dot {
+  width: 8px;
+  height: 8px;
+}
+.menu .status-item .check {
+  flex: none;
+  width: 14px;
+  display: inline-flex;
+  justify-content: center;
+}

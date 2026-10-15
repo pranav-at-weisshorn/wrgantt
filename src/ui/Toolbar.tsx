@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { todayDay } from '../engine';
+import { STATUS_LABEL, TASK_STATUSES, todayDay } from '../engine';
 import { canMoveTask, indentTask, insertTask, moveTaskBy, outdentTask } from '../store/ops';
 import { ZOOMS, type ColumnKey } from '../store/prefs';
 import { EMPTY_FILTERS, useDerived, useStore } from '../store/store';
@@ -137,9 +137,28 @@ export function Toolbar() {
                 <option key={p}>{p}</option>
               ))}
             </select>
+            <div className="menu-title">Status</div>
+            {TASK_STATUSES.map((status) => (
+              <label key={status}>
+                <input
+                  type="checkbox"
+                  checked={filters.statuses.includes(status)}
+                  onChange={(e) =>
+                    s.setFilters({
+                      statuses: e.target.checked
+                        ? [...filters.statuses, status]
+                        : filters.statuses.filter((x) => x !== status),
+                    })
+                  }
+                  data-testid={`filter-status-${status}`}
+                />
+                {STATUS_LABEL[status]}
+              </label>
+            ))}
             <hr />
             {(
               [
+                ['atRiskOrLate', 'Schedule: at risk or late'],
                 ['criticalOnly', 'Critical only'],
                 ['slipped', 'Slipped vs. baseline'],
                 ['inProgress', 'In progress'],

@@ -1,0 +1,67 @@
+/* Storage indicator, folder block on the project list and the read-only banner. */
+
+.storage-pill {
+  gap: 6px;
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+.storage-pill:hover:not(:disabled) {
+  color: var(--fg);
+}
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fg-faint);
+  flex: none;
+}
+.dot.ok {
+  background: var(--ok);
+}
+.dot.warn {
+  background: var(--warn);
+}
+.dot.err {
+  background: var(--danger);
+}
+
+.storage-menu-error {
+  max-width: 260px;
+  padding: 4px 12px 8px;
+  color: var(--danger);
+  font-size: 12px;
+  white-space: normal;
+}
+
+.storage-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--bg-panel);
+}
+.storage-block .hint,
+.storage-block .err {
+  margin: 0;
+}
+.storage-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.readonly-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border-strong);
+  background: var(--vf-sandstone);
+  color: var(--vf-dark-wood);
+  font-size: 13px;
+}

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { newId, type Project } from '../engine';
+import { diskReady, reconnectFolder, useDisk } from '../io/diskStore';
 import {
   deleteProject,
   listProjects,
   loadProject,
   saveProject,
+  syncFromFolder,
   type ProjectMeta,
 } from '../io/persist';
 import { useStore } from '../store/store';
@@ -13,6 +15,7 @@ import { Modal } from './dialogs/Modal';
 import { fmtIso } from './format';
 import { Icon } from './icons';
 import { ImportButtons } from './ImportButtons';
+import { StorageBlock } from './StorageStatus';
 
 type Pending =
   | { kind: 'new'; template: boolean }
@@ -26,6 +29,7 @@ export function ProjectList({ onOpen }: { onOpen: (id: string) => void }) {
   const [name, setName] = useState('');
   const [start, setStart] = useState(defaultStartDate());
   const toast = useStore((s) => s.toast);
+  const folder = useDisk();
 
   const refresh = useCallback(() => {
     listProjects()
@@ -36,6 +40,30 @@ export function ProjectList({ onOpen }: { onOpen: (id: string) => void }) {
       });
   }, [toast]);
   useEffect(refresh, [refresh]);
+
+  // With a folder connected: import projects that are only in the folder, then show them.
+  const folderConnected = useDisk((s) => s.connected && s.permission === 'granted');
+  useEffect(() => {
+    if (!folderConnected) return;
+    let cancelled = false;
+    void diskReady()
+      .then(() => syncFromFolder())
+      .then(({ imported }) => {
+        if (cancelled) return;
+        if (imported.length) {
+          toast(
+            `Imported ${imported.length} project${imported.length === 1 ? '' : 's'} from the folder`,
+          );
+          refresh();
+        }
+      })
+      .catch((e) =>
+        toast(`Could not read the folder: ${e instanceof Error ? e.message : e}`, 'error'),
+      );
+    return () => {
+      cancelled = true;
+    };
+  }, [folderConnected, refresh, toast]);
 
   const create = async (p: Project) => {
     await saveProject(p);
@@ -64,10 +92,28 @@ export function ProjectList({ onOpen }: { onOpen: (id: string) => void }) {
       setPending(null);
       refresh();
     } else if (pending.kind === 'delete') {
-      await deleteProject(pending.meta.id);
+      const { meta } = pending;
+      const disk = useDisk.getState();
+      const inFolder = disk.connected;
+      try {
+        // The folder file is moved to Deleted/ first, which needs permission (asked for here,
+        // while the click that confirmed the deletion is still fresh).
+        if (inFolder && disk.permission !== 'granted' && !(await reconnectFolder())) {
+          throw new Error(
+            'Reconnect the folder first, so the project’s file can be moved to Deleted.',
+          );
+        }
+        await deleteProject(meta.id);
+        toast(
+          inFolder
+            ? `Deleted “${meta.name}”. Its file was moved to the Deleted folder.`
+            : `Deleted “${meta.name}”`,
+        );
+      } catch (e) {
+        toast(`Could not delete: ${e instanceof Error ? e.message : e}`, 'error');
+      }
       setPending(null);
       refresh();
-      toast(`Deleted “${pending.meta.name}”`);
     }
   };
 
@@ -80,8 +126,10 @@ export function ProjectList({ onOpen }: { onOpen: (id: string) => void }) {
         </div>
         <h1>Project schedules</h1>
         <p className="hint">
-          Projects are saved in this browser (IndexedDB). Export to .gantt.json to back up or share.
+          Projects are saved in this browser (IndexedDB). Save them to a folder as well, or export
+          to .gantt.json, to keep a backup or share a project.
         </p>
+        <StorageBlock onChanged={refresh} />
         <div className="actions">
           <button
             className="btn primary"
@@ -189,8 +237,15 @@ export function ProjectList({ onOpen }: { onOpen: (id: string) => void }) {
           <div className="modal-body">
             {pending.kind === 'delete' ? (
               <p>
-                Permanently delete “{pending.meta.name}” from this browser? This cannot be undone.
-                Export it first if you might need it.
+                Permanently delete “{pending.meta.name}” from this browser, including its saved
+                versions? This cannot be undone. Export it first if you might need it.
+                {folder.connected && (
+                  <>
+                    {' '}
+                    Its file in the folder “{folder.folderName}” is not erased: it is moved to the
+                    Deleted folder inside it, so you can still get it back there.
+                  </>
+                )}
               </p>
             ) : (
               <div className="form">

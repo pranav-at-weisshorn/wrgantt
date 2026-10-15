@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { flushAutosave, loadProject, startAutosave } from '../io/persist';
+import { initDisk } from '../io/diskStore';
+import { flushAutosave, openProjectById, releaseProjectLock, startAutosave } from '../io/persist';
+import { ensureDailySnapshot } from '../io/versions';
 import { useStore } from '../store/store';
 import { ProjectList } from './ProjectList';
 import { ProjectView } from './ProjectView';
@@ -16,7 +18,10 @@ export function App() {
   const [routeId, setRouteId] = useState<string | null>(parseHash);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => startAutosave(), []);
+  useEffect(() => {
+    void initDisk();
+    return startAutosave();
+  }, []);
 
   useEffect(() => {
     const onHash = () => setRouteId(parseHash());
@@ -28,20 +33,30 @@ export function App() {
     const s = useStore.getState();
     if (!routeId) {
       if (s.project) {
-        void flushAutosave();
+        // Save first, then let another tab take the project.
+        const id = s.project.id;
+        void flushAutosave().finally(() => releaseProjectLock(id));
         s.closeProject();
-      }
+      } else releaseProjectLock();
       return;
     }
     if (s.project?.id === routeId) return;
     let cancelled = false;
     setLoading(true);
     void flushAutosave()
-      .then(() => loadProject(routeId))
-      .then((p) => {
+      .then(() => openProjectById(routeId))
+      .then((opened) => {
         if (cancelled) return;
-        if (p) useStore.getState().openProject(p);
-        else {
+        if (opened) {
+          const st = useStore.getState();
+          st.openProject(opened.project);
+          if (!opened.locked) {
+            // Open in another tab: look, but do not edit or save.
+            st.setReadOnly(true);
+          } else {
+            void ensureDailySnapshot(opened.project).catch(() => undefined);
+          }
+        } else {
           useStore.getState().toast('Project not found', 'error');
           window.location.hash = '#/';
         }
