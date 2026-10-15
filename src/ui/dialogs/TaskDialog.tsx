@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Draft } from 'immer';
 import {
+  displayFinishDay,
   newId,
   type ConstraintType,
   type Dependency,
@@ -10,7 +11,7 @@ import {
 } from '../../engine';
 import { derive } from '../../store/derive';
 import { useStore } from '../../store/store';
-import { parseDuration } from '../format';
+import { fmtDay, parseDuration } from '../format';
 import { Modal } from './Modal';
 
 type Tab = 'general' | 'predecessors' | 'successors' | 'notes';
@@ -378,8 +379,9 @@ export function TaskDialog({ taskId, tab: initialTab }: { taskId: string; tab?: 
             />
             {c && (
               <p className="hint full">
-                Early {c.earlyStart} → {c.earlyFinish} (exclusive) · Late {c.lateStart} →{' '}
-                {c.lateFinish} · Total float {c.totalFloat}d · Free float {c.freeFloat}d
+                Early {fmtDay(c.es)} – {fmtDay(displayFinishDay(c))} · Late {fmtDay(c.ls)} –{' '}
+                {fmtDay(c.lf > c.ls ? c.lf - 1 : c.ls)} · Total float {c.totalFloat}d · Free float{' '}
+                {c.freeFloat}d
               </p>
             )}
           </div>

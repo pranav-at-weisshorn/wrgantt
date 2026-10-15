@@ -111,6 +111,13 @@ export function cycleMessage(loopTaskIds: string[], outline: Outline, summaryIds
 }
 
 function loopInfo(loop: Edge[], leafIds: string[], outline: Outline): CycleInfo {
+  // Start the loop at its lowest row ID so the message is stable.
+  const row = (e: Edge) => outline.byId.get(leafIds[e.from])?.rowId ?? 0;
+  let k = 0;
+  loop.forEach((e, i) => {
+    if (row(e) < row(loop[k])) k = i;
+  });
+  loop = [...loop.slice(k), ...loop.slice(0, k)];
   const taskIds = [leafIds[loop[0].from], ...loop.map((e) => leafIds[e.to])];
   const summaries: string[] = [];
   for (const e of loop) {

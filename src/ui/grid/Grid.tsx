@@ -360,6 +360,7 @@ export function Grid(props: Props) {
         key={col.key}
         className={cls.join(' ')}
         style={{ width: col.width }}
+        data-col={col.key}
         onPointerDown={(e) => {
           if (col.key === 'id' && e.button === 0) {
             setRowDrag({ id: row.id, startY: e.clientY, active: false });
