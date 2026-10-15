@@ -222,3 +222,28 @@ Source: `VILLAFELSTEAD_BrandGuidelines.pdf` (July 2026). Decisions confirmed wit
   accepts the full forms and still accepts the short forms as typing shortcuts.
 - **Move up / down** swaps a task (with its subtasks) with its neighbour inside the same parent.
 - **Right-click menu** on grid rows and timeline bars.
+
+## Personal-use upgrade (data safety, history, status, exports)
+
+Built by three Sonnet subagents in parallel on disjoint files after a shared foundation
+(status model, panel slots, links toggle, read-only flag), then integrated and verified.
+
+- **Folder storage** (`src/io/diskStore.ts`): File System Access API; the folder handle lives in
+  IndexedDB (`condo-gantt-fs`). IndexedDB stays the working copy (500 ms); the folder copy
+  follows after ~2 s. A folder file is "newer" only if newer by time _and_ different in content.
+- **Two tabs**: Web Locks (`condo-gantt:project:<id>`); the second tab is read-only and reloads
+  when the owner saves (BroadcastChannel).
+- **Undo history** (`src/store/history.ts`): Immer patches, up to 5,000 steps, persisted per
+  project in `condo-gantt-history`, adopted on open only if its fingerprint matches the project.
+- **Versions** (`src/io/versions.ts`): snapshots in `condo-gantt-versions` and `Versions/` files;
+  manual kept forever, automatic for 30 days then one per month. Restore is one undoable commit.
+- **Status** (`src/engine/status.ts`): effective status from progress + user value; schedule
+  signal Late (negative float, or critical and behind baseline) / At risk (behind baseline,
+  blocked, on hold, constraint conflict) / On track.
+- **Exports** (`src/io/report.ts` model shared by all formats): PDF via the print view with
+  summary pages and fit or split timeline pages at real paper width (A4/A3); Excel sheets
+  Summary, Tasks, Gantt (weekly or monthly) with frozen panes, landscape fit-to-width and
+  repeating titles patched into the XML; a self-contained HTML report for phones (no external
+  requests). The old Print dialog is replaced by "Export for review…".
+- Not verified automatically: the real folder picker and permission prompt, a real "Save as
+  PDF" file, Safari/phones (tested in Edge with touch emulation only).

@@ -2,7 +2,7 @@ import { useStore } from '../../store/store';
 import { BaselineDialog } from './BaselineDialog';
 import { LinkDialog } from './LinkDialog';
 import { Modal } from './Modal';
-import { PrintDialog } from './PrintDialog';
+import { ExportDialog } from './ExportDialog';
 import { ProgressDialog } from './ProgressDialog';
 import { SettingsDialog } from './SettingsDialog';
 import { TaskDialog } from './TaskDialog';
@@ -23,7 +23,7 @@ export function DialogHost() {
     case 'progress':
       return <ProgressDialog />;
     case 'print':
-      return <PrintDialog />;
+      return <ExportDialog />;
     case 'confirm':
       return (
         <Modal

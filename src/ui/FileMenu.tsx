@@ -1,7 +1,7 @@
 import { flushAutosave, saveProject } from '../io/persist';
 import { useStore } from '../store/store';
 import { Icon } from './icons';
-import { exportExcel, exportJson, exportMsProject, importProjectFile } from './importExport';
+import { exportJson, exportMsProject, importProjectFile } from './importExport';
 import { Menu } from './Menu';
 
 export function FileMenu() {
@@ -22,9 +22,6 @@ export function FileMenu() {
         <>
           <div className="menu-title">Export</div>
           <button onClick={() => (close(), exportJson(project))}>Project file (.gantt.json)</button>
-          <button onClick={() => (close(), void exportExcel(project))}>
-            Excel (.xlsx): tasks + weekly Gantt
-          </button>
           <button onClick={() => (close(), exportMsProject(project))}>Microsoft Project XML</button>
           <hr />
           <button
@@ -46,7 +43,7 @@ export function FileMenu() {
               setDialog({ kind: 'print' });
             }}
           >
-            <Icon name="print" size={14} /> Print / PDF…
+            <Icon name="print" size={14} /> Export for review…
           </button>
         </>
       )}

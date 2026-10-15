@@ -1,0 +1,45 @@
+.export-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.export-formats .btn {
+  min-width: 96px;
+  justify-content: center;
+}
+.export-hint {
+  margin: 0;
+}
+.export-form {
+  grid-template-columns: 130px 1fr;
+}
+.export-form .select,
+.export-form .input {
+  max-width: 100%;
+}
+.export-form .row-inline {
+  gap: 8px;
+}
+.export-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.export-check input {
+  margin: 0;
+}
+.export-result {
+  border: 1px solid var(--border);
+  border-top: 1px solid var(--rule);
+  background: var(--bg-panel);
+  padding: 10px 12px;
+  line-height: 1.5;
+}
+.export-result .caps {
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: var(--track);
+  font-size: 11px;
+  color: var(--fg-muted);
+  margin-bottom: 2px;
+}

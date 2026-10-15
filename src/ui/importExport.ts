@@ -1,4 +1,5 @@
-import type { Project } from '../engine';
+import { dayToIso, todayDay, type Project } from '../engine';
+import { DEFAULT_OPTIONS, type ReportOptions } from '../io/report';
 import { downloadBlob, pickFile, safeFileName } from '../io/files';
 import { projectFromJson, projectToJson } from '../io/json';
 import { projectToMsProjectXml } from '../io/msproject';
@@ -16,14 +17,23 @@ export function exportJson(project: Project) {
   );
 }
 
-export async function exportExcel(project: Project) {
+export async function exportExcel(project: Project, options: ReportOptions = DEFAULT_OPTIONS) {
   // SheetJS is large; load it only when needed.
   const { buildWorkbook } = await import('../io/excel');
-  const bytes = buildWorkbook(project, derive(project));
+  const bytes = buildWorkbook(project, derive(project), options);
   downloadBlob(
     bytes as BlobPart,
-    `${safeFileName(project.name)}.xlsx`,
+    `${safeFileName(project.name)} \u2013 schedule ${dayToIso(todayDay())}.xlsx`,
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  );
+}
+
+export async function exportHtml(project: Project, options: ReportOptions) {
+  const { buildHtmlReport, htmlReportFileName } = await import('../io/htmlReport');
+  downloadBlob(
+    buildHtmlReport(project, derive(project), options),
+    htmlReportFileName(project),
+    'text/html',
   );
 }
 

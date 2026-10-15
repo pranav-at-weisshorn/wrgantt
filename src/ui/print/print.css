@@ -1,0 +1,286 @@
+/* Management-review PDF. Everything is sized in CSS pixels at 96 dpi for the chosen paper
+   (A4 landscape = 1044 px usable, A3 landscape = 1508 px). */
+
+.pv {
+  font-family: 'GT Standard', 'GT Standard M', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 400;
+  color: #2a211e;
+  font-size: 10px;
+  line-height: 1.3;
+  background: #fff;
+}
+.pv *,
+.pv *::before,
+.pv *::after {
+  box-sizing: border-box;
+  font-weight: 400;
+}
+.pv .caps {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 8.5px;
+  color: #8c7067;
+}
+.pv .mark {
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  font-size: 10px;
+  color: #2a211e;
+}
+.pv .muted {
+  color: #8c7067;
+}
+.pv-page {
+  margin: 0 auto;
+  overflow: hidden;
+}
+.pv-break {
+  break-before: page;
+  page-break-before: always;
+}
+.pv svg {
+  display: block;
+}
+
+/* ---- summary pages */
+.pv-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid #2a211e;
+  padding-bottom: 5px;
+}
+.pv-title {
+  font-size: 24px;
+  line-height: 1.15;
+  margin: 12px 0 2px;
+}
+.pv-sub {
+  color: #8c7067;
+  font-size: 11px;
+  margin-bottom: 12px;
+}
+.pv-tiles {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr 1fr 0.8fr 1.5fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.pv-tile {
+  border: 1px solid #d9d0c8;
+  background: #f6f3f1;
+  padding: 8px 10px;
+  min-height: 74px;
+}
+.pv-tile .v {
+  font-size: 17px;
+  line-height: 1.2;
+  margin-top: 3px;
+}
+.pv-tile .s {
+  font-size: 9px;
+  color: #8c7067;
+  margin-top: 2px;
+}
+.pv-meter {
+  height: 6px;
+  background: #ece8e3;
+  margin-top: 8px;
+  position: relative;
+}
+.pv-meter i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: #462f28;
+}
+.pv-stack {
+  display: flex;
+  height: 9px;
+  background: #ece8e3;
+  margin: 6px 0 5px;
+}
+.pv-stack i {
+  display: block;
+  height: 100%;
+}
+.pv-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  font-size: 9px;
+  align-items: center;
+}
+.pv-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.pv-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+.pv-dot.ring {
+  background: #fff !important;
+  border: 2px solid #4f7a4a;
+}
+.pv-cols {
+  display: flex;
+  gap: 22px;
+  align-items: flex-start;
+}
+.pv-col h3 {
+  font-size: 8.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0 0 4px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid #2a211e;
+}
+.pv-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.pv-table th {
+  text-align: left;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8c7067;
+  padding: 2px 4px;
+  border-bottom: 0.5px solid #c3b6ab;
+  white-space: nowrap;
+}
+.pv-table td {
+  padding: 0 4px;
+  height: 18px;
+  border-bottom: 0.5px solid #ece8e3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 9.5px;
+}
+.pv-table tr {
+  break-inside: avoid;
+}
+.pv-table td.r,
+.pv-table th.r {
+  text-align: right;
+}
+.pv-table td.svgc {
+  padding: 0;
+}
+.pv-table tr.done td {
+  color: #8c7067;
+}
+.pv .late {
+  color: #b3261e;
+}
+.pv .atRisk {
+  color: #9c6b1f;
+}
+.pv .onTrack,
+.pv .complete {
+  color: #4f7a4a;
+}
+
+/* ---- timeline pages */
+.pv-gt {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.pv-gt thead {
+  display: table-header-group;
+}
+.pv-gt tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.pv-gt th {
+  text-align: left;
+  padding: 0 4px;
+  height: 36px;
+  vertical-align: bottom;
+  padding-bottom: 3px;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8c7067;
+  background: #f6f3f1;
+  border-bottom: 1px solid #2a211e;
+  white-space: nowrap;
+}
+.pv-gt th.svgc {
+  padding: 0;
+}
+.pv-gt tr.titlerow th {
+  height: 22px;
+  background: #fff;
+  vertical-align: middle;
+  border-bottom: 0;
+  padding: 0 0 2px;
+  color: #2a211e;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 10px;
+}
+.pv-gt tr.titlerow .in {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid #2a211e;
+  height: 18px;
+}
+.pv-gt td {
+  height: 18px;
+  padding: 0 4px;
+  border-bottom: 0.5px solid #ece8e3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 9.5px;
+}
+.pv-gt td.svgc {
+  padding: 0;
+}
+.pv-gt tr.phase td {
+  background: #f6f3f1;
+  color: #2a211e;
+}
+.pv-gt tr.summary td {
+  color: #462f28;
+}
+.pv-gt .sig {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.pv-lg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 14px;
+  align-items: center;
+  font-size: 8.5px;
+  color: #5c4a43;
+  margin: 6px 0 8px;
+}
+.pv-lg span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.pv-nodata {
+  padding: 30px;
+  text-align: center;
+  color: #8c7067;
+}
+.pv-gt td.svgc,
+.pv-page {
+  overflow: visible;
+}

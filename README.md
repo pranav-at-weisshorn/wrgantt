@@ -68,9 +68,35 @@ download is needed on Windows. Elsewhere, run `npx playwright install chromium` 
 - **Settings**: project name, start date, project calendar, critical float threshold, and the
   calendar editor (working weekdays and holidays — the Standard calendar ships with no holidays;
   paste your local list there).
-- **File**: export `.gantt.json`, Excel (task table + cell-shaded weekly Gantt), Microsoft Project
-  XML; import a `.gantt.json` or CSV as a new project; print / save as PDF (landscape, fit to
-  width, headers repeated on every page, optionally collapsed to phases).
+- **Status**: every task has a status (Not started, In progress, On hold, Blocked, Complete),
+  kept in step with % complete, plus a schedule signal (On track, At risk, Late). Set it in the
+  Status column, the right-click menu or the task dialog; filter by it in Filter.
+- **History**: every change is kept (across reloads) and listed in the History panel; click
+  any entry to go back to that point. Ctrl+Z / Ctrl+Shift+Z step through it.
+- **Versions**: save named versions of the project; the app also keeps a daily snapshot and one
+  before any restore. Compare a version with the current plan, restore it (undoable) or
+  download it.
+- **Links** button: show or hide the link arrows.
+- **File → Export for review…**: PDF, Excel or a web page for phones, with a choice of rows
+  (all tasks, phases, phases and milestones, milestones), date range (whole project, custom,
+  or a look-ahead of 6/12/26 weeks), time scale, and for PDF whether the timeline fits one page
+  width or is split across pages (task names repeated). Summary pages show key dates, finish
+  against the baseline, milestones, phases and a watch list. Also: `.gantt.json` and Microsoft
+  Project XML export, and import of a `.gantt.json` or CSV as a new project.
+
+## Keeping your data safe
+
+- Click **Not saved to a folder** (top right) or **Save projects to a folder…** on the start
+  page and choose a folder, for example your Villa Felstead OneDrive folder. From then on every
+  project is also written there as `<project name>.gantt.json` (a few seconds after each
+  change), and versions go to `Versions/<project name>/`. OneDrive then backs them up.
+- Edge or Chrome is needed for folder saving. The browser may ask once per visit to allow
+  editing the folder — choose "Allow on every visit".
+- A project file changed outside the app (e.g. restored from OneDrive) is picked up when you
+  open the project; the browser copy is kept as a version first.
+- Deleting a project moves its file to `Deleted/` in the folder.
+- Opening the same project in a second tab makes that tab read-only, so tabs never overwrite
+  each other.
 
 ## Predecessor syntax
 

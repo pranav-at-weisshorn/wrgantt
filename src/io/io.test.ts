@@ -5,6 +5,7 @@ import { derive } from '../store/derive';
 import { projectFromTemplate } from '../template/load';
 import { projectFromCsv } from './csv';
 import { buildWorkbook } from './excel';
+import { DEFAULT_OPTIONS } from './report';
 import { projectFromJson, projectToJson } from './json';
 import { projectToMsProjectXml } from './msproject';
 
@@ -26,37 +27,212 @@ describe('JSON export/import', () => {
   });
 });
 
+/** Child element names of an XML element at depth 1 (the worksheet's direct children). */
+function topLevelOrder(xml: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  for (const m of xml.matchAll(/<(\/?)([A-Za-z][\w:]*)[^>]*?(\/?)>/g)) {
+    const [, closing, name, selfClosing] = m;
+    if (closing) {
+      depth--;
+      continue;
+    }
+    if (depth === 1) out.push(name);
+    if (!selfClosing) depth++;
+  }
+  return out;
+}
+
+const SCHEMA_ORDER = [
+  'sheetPr',
+  'dimension',
+  'sheetViews',
+  'sheetFormatPr',
+  'cols',
+  'sheetData',
+  'sheetCalcPr',
+  'sheetProtection',
+  'protectedRanges',
+  'scenarios',
+  'autoFilter',
+  'sortState',
+  'dataConsolidate',
+  'customSheetViews',
+  'mergeCells',
+  'phoneticPr',
+  'conditionalFormatting',
+  'dataValidations',
+  'hyperlinks',
+  'printOptions',
+  'pageMargins',
+  'pageSetup',
+  'headerFooter',
+  'rowBreaks',
+  'colBreaks',
+  'customProperties',
+  'cellWatches',
+  'ignoredErrors',
+  'smartTags',
+  'drawing',
+  'legacyDrawing',
+];
+
+function zipText(bytes: Uint8Array, suffix: string): string {
+  const cfb = XLSX.CFB.read(bytes, { type: 'array' });
+  const i = cfb.FullPaths.findIndex((p: string) => p.endsWith(suffix));
+  if (i < 0) throw new Error(`missing ${suffix}`);
+  return new TextDecoder().decode(cfb.FileIndex[i].content as Uint8Array);
+}
+
 describe('Excel export', () => {
   const bytes = buildWorkbook(project, derived);
   const wb = XLSX.read(bytes, { type: 'array', cellDates: true });
 
-  it('has a task sheet with all tasks, indented names and real dates', () => {
-    expect(wb.SheetNames).toEqual(['Tasks', 'Gantt (weekly)']);
+  it('has Summary, Tasks and Gantt sheets', () => {
+    expect(wb.SheetNames).toEqual(['Summary', 'Tasks', 'Gantt']);
+    const noSummary = XLSX.read(
+      buildWorkbook(project, derived, { ...DEFAULT_OPTIONS, includeSummary: false }),
+      { type: 'array' },
+    );
+    expect(noSummary.SheetNames).toEqual(['Tasks', 'Gantt']);
+  });
+
+  it('has a task sheet with all tasks, indented names, status, signal and real dates', () => {
     const rows = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets.Tasks, { header: 1 });
     expect(rows).toHaveLength(project.tasks.length + 1);
     expect(rows[0]).toContain('Predecessors');
+    expect(rows[0]).toContain('Status');
+    expect(rows[0]).toContain('Schedule signal');
     expect(rows[2][2]).toBe('    Site identified');
+    expect(rows[2][rows[0].indexOf('Status')]).toBe('Not started');
+    expect(rows[2][rows[0].indexOf('Schedule signal')]).toBe('On track');
     expect(wb.Sheets.Tasks.E3.t).toBe('d');
   });
 
   it('shades Gantt cells with solid fills', () => {
-    const cfb = XLSX.CFB.read(bytes, { type: 'array' });
-    const styles = new TextDecoder().decode(
-      cfb.FileIndex[cfb.FullPaths.findIndex((p: string) => p.endsWith('/xl/styles.xml'))]
-        .content as Uint8Array,
-    );
+    const styles = zipText(bytes, '/xl/styles.xml');
     const solid = styles.match(/patternType="solid"/g) ?? [];
-    // 11 phase colours + critical red + summary grey.
-    expect(solid.length).toBeGreaterThanOrEqual(12);
+    // 11 phase colours + critical red + summary dark + baseline grey + header fills.
+    expect(solid.length).toBeGreaterThanOrEqual(14);
     expect(styles).toContain('rgb="FFB3261E"');
     expect(styles).toMatch(
       /fillId="\d+" borderId="0" xfId="0" applyNumberFormat="1" applyFill="1"/,
     );
-    const ws = wb.Sheets['Gantt (weekly)'];
+    const ws = wb.Sheets.Gantt;
     const ref = XLSX.utils.decode_range(ws['!ref']!);
-    expect(ref.e.c).toBeGreaterThan(150); // ~3 years of weeks
+    expect(ref.e.c).toBe(4 + 38 - 1); // monthly columns for about three years
     const milestone = Object.values(ws).find((c) => (c as XLSX.CellObject)?.v === '◆');
     expect(milestone).toBeDefined();
+  });
+
+  it('keeps style tables consistent and uses the brand font', () => {
+    const styles = zipText(bytes, '/xl/styles.xml');
+    const count = (tag: string, child: string) => {
+      const m = new RegExp(`<${tag} count="(\\d+)"[^>]*>([\\s\\S]*?)</${tag}>`).exec(styles)!;
+      return [Number(m[1]), (m[2].match(new RegExp(`<${child}[ >/]`, 'g')) ?? []).length];
+    };
+    for (const [tag, child] of [
+      ['fonts', 'font'],
+      ['fills', 'fill'],
+      ['cellXfs', 'xf'],
+    ]) {
+      const [declared, actual] = count(tag, child);
+      expect(declared, tag).toBe(actual);
+    }
+    expect(styles).toContain('<name val="GT Standard M"/>');
+    expect(styles).not.toContain('Calibri');
+    expect(styles).not.toContain('<scheme');
+    expect(styles).toContain('textRotation="90"');
+    // Excel allows at most four sections (positive;negative;zero;text) in a number format.
+    for (const m of styles.matchAll(/formatCode="([^"]*)"/g)) {
+      const code = m[1].replace(/&quot;/g, '"').replace(/"[^"]*"/g, '');
+      expect(code.split(';').length, m[1]).toBeLessThanOrEqual(4);
+    }
+    // Every fillId / fontId used by a cell format exists.
+    const fills = count('fills', 'fill')[1];
+    const fonts = count('fonts', 'font')[1];
+    for (const m of styles.matchAll(/<xf [^>]*fillId="(\d+)"/g)) expect(+m[1]).toBeLessThan(fills);
+    for (const m of styles.matchAll(/<xf [^>]*fontId="(\d+)"/g)) expect(+m[1]).toBeLessThan(fonts);
+  });
+
+  it('freezes header row and name columns, in landscape, fit to one page wide', () => {
+    const tasks = zipText(bytes, '/xl/worksheets/sheet2.xml');
+    const gantt = zipText(bytes, '/xl/worksheets/sheet3.xml');
+    expect(tasks).toContain(
+      '<pane xSplit="3" ySplit="1" topLeftCell="D2" activePane="bottomRight" state="frozen"/>',
+    );
+    expect(gantt).toContain(
+      '<pane xSplit="4" ySplit="1" topLeftCell="E2" activePane="bottomRight" state="frozen"/>',
+    );
+    for (const xml of [tasks, gantt]) {
+      expect(xml).toContain('<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>');
+      expect(xml).toContain(
+        '<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>',
+      );
+    }
+    // A3 paper is honoured.
+    const a3 = zipText(
+      buildWorkbook(project, derived, { ...DEFAULT_OPTIONS, paper: 'A3' }),
+      '/xl/worksheets/sheet3.xml',
+    );
+    expect(a3).toContain('paperSize="8"');
+  });
+
+  it('writes sheet elements in schema order on every sheet', () => {
+    for (const n of [1, 2, 3]) {
+      const xml = zipText(bytes, `/xl/worksheets/sheet${n}.xml`).replace(
+        /<sheetData>[\s\S]*<\/sheetData>/,
+        '<sheetData/>',
+      );
+      const order = topLevelOrder(xml);
+      const positions = order.map((name) => SCHEMA_ORDER.indexOf(name));
+      expect(
+        positions.every((p) => p >= 0),
+        order.join(),
+      ).toBe(true);
+      expect(positions, order.join()).toEqual([...positions].sort((a, b) => a - b));
+      expect(order).toContain('pageMargins');
+      expect(order.indexOf('pageSetup')).toBe(order.indexOf('pageMargins') + 1);
+      expect(order[0]).toBe('sheetPr');
+      expect(xml.match(/<sheetView\b/g)).toHaveLength(1);
+    }
+  });
+
+  it('is readable by SheetJS with print titles and the filter intact', () => {
+    const wbXml = zipText(bytes, '/xl/workbook.xml');
+    expect(wbXml).toContain('_xlnm.Print_Titles');
+    expect(wbXml).toContain('_xlnm._FilterDatabase');
+    expect(wb.Sheets.Tasks['!autofilter']).toBeDefined();
+    const summary = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets.Summary, { header: 1 });
+    const flat = summary.flat().map(String);
+    expect(flat).toContain('VILLA FELSTEAD');
+    expect(flat).toContain('Project finish');
+    expect(flat).toContain('Project complete'); // milestone table
+    expect(flat).toContain('Acquisition & Feasibility'); // phase table
+  });
+
+  it('honours scope, date window and scale on the Gantt sheet', () => {
+    const phases = XLSX.read(
+      buildWorkbook(project, derived, { ...DEFAULT_OPTIONS, scope: 'phases' }),
+      { type: 'array' },
+    );
+    expect(XLSX.utils.sheet_to_json(phases.Sheets.Gantt, { header: 1 })).toHaveLength(12);
+
+    const weekly = XLSX.read(
+      buildWorkbook(project, derived, {
+        ...DEFAULT_OPTIONS,
+        range: 'custom',
+        customFrom: '2027-01-04',
+        customTo: '2027-03-28',
+      }),
+      { type: 'array', cellDates: true },
+    );
+    const ws = weekly.Sheets.Gantt;
+    const ref = XLSX.utils.decode_range(ws['!ref']!);
+    expect(ref.e.c).toBe(4 + 12 - 1); // 12 weekly columns, the first is Monday 4 January 2027
+    expect(XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1 }).length).toBeLessThan(
+      project.tasks.length,
+    );
   });
 });
 
