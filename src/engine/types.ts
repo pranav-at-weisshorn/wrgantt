@@ -34,6 +34,8 @@ export interface TaskCalc {
   ef: number;
   ls: number;
   lf: number;
+  /** Inclusive finish day as displayed (summaries: latest child finish day). */
+  finishDay: number;
   /** Computed duration in working days (summary tasks: project calendar). */
   duration: number;
   /** Rolled-up % complete for summaries; own value for leaves. */

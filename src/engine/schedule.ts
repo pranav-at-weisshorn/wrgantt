@@ -218,16 +218,20 @@ export function scheduleProject(project: Project, prebuilt?: Outline): ScheduleR
     const cal = calOf[i];
     const d = state[i] === State.InProgress ? rem[i] : dur[i];
     const norm = (b: number) => (dur[i] > 0 ? cal.latestFinishLE(b) : cal.latestStartLE(b));
+    // FF/SF targets are finish points, which the forward pass compares in working time
+    // (cum), not literally. "Fri finish" (Sat 00:00) and "Mon 00:00" are the same working
+    // instant, so convert the successor's finish to its latest equivalent point first.
+    const finishTarget = () => calOf[e.to].snap(sFinish);
     switch (e.dep.type) {
       case 'FS':
         return norm(shiftInv(sStart, e));
       case 'FF':
-        return norm(shiftInv(sFinish, e));
+        return norm(shiftInv(finishTarget(), e));
       case 'SS':
       case 'SF': {
         // A started task cannot move its start, so start-based links no longer bind it.
         if (state[i] !== State.NotStarted) return POS;
-        const b = shiftInv(e.dep.type === 'SS' ? sStart : sFinish, e);
+        const b = shiftInv(e.dep.type === 'SS' ? sStart : finishTarget(), e);
         return cal.addDuration(cal.latestStartLE(b), d);
       }
     }
@@ -321,6 +325,7 @@ export function scheduleProject(project: Project, prebuilt?: Outline): ScheduleR
       ef: EF[i],
       ls: LS[i],
       lf: LF[i],
+      finishDay: EF[i] > ES[i] ? EF[i] - 1 : ES[i],
       totalFloat: TF[i],
       freeFloat: FFl[i],
       critical: state[i] !== State.Complete && TF[i] <= threshold,
@@ -361,6 +366,7 @@ function rollUpSummaries(
       .map((k) => calc.get(k))
       .filter(Boolean) as TaskCalc[];
     if (!kids.length) continue;
+    let fd = NEG;
     let es = POS,
       ef = NEG,
       ls = POS,
@@ -370,6 +376,7 @@ function rollUpSummaries(
     for (const k of kids) {
       es = Math.min(es, k.es);
       ef = Math.max(ef, k.ef);
+      fd = Math.max(fd, k.finishDay);
       ls = Math.min(ls, k.ls);
       lf = Math.max(lf, k.lf);
       if (k.percentComplete < 100) {
@@ -402,6 +409,7 @@ function rollUpSummaries(
       ef,
       ls,
       lf,
+      finishDay: fd,
       totalFloat: tf,
       freeFloat: ff,
       critical: !complete && tf <= threshold,

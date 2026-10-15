@@ -4,7 +4,8 @@ import type { Outline } from './outline';
 import type { Baseline, BaselineEntry, Project, ScheduleResult, TaskCalc } from './types';
 
 /** Inclusive finish day shown to the user: last working day, or the date of a milestone. */
-export function displayFinishDay(c: Pick<TaskCalc, 'es' | 'ef'>): number {
+export function displayFinishDay(c: Pick<TaskCalc, 'es' | 'ef'> & { finishDay?: number }): number {
+  if (c.finishDay !== undefined) return c.finishDay;
   return c.ef > c.es ? c.ef - 1 : c.es;
 }
 
@@ -75,10 +76,8 @@ export function varianceSummary(
     const f = isoToDay(e.finish);
     if (baseFinish === null || f > baseFinish) baseFinish = f;
   }
-  const projFinish =
-    schedule.projectFinish > schedule.projectStart
-      ? schedule.projectFinish - 1
-      : schedule.projectFinish;
+  let projFinish = schedule.projectStart;
+  for (const c of schedule.calc.values()) projFinish = Math.max(projFinish, displayFinishDay(c));
   let slipped = 0;
   const crit: { id: string; variance: number }[] = [];
   for (const id of outline.flat) {

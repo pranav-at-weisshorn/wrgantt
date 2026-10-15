@@ -184,6 +184,17 @@ describe('working-day lags on the Standard calendar', () => {
     expect(iso(displayFinishDay(c))).toBe('2027-01-11');
     expect(c.earlyStart).toBe('2027-01-08');
   });
+  it('FF with a working-day lag across a weekend leaves no spurious float', () => {
+    // Regression: the backward pass compared "Fri finish" (Sat 00:00) literally with the
+    // successor's finish point and produced TF = -1 on the driving predecessor.
+    const b = std().task('A', 15).task('B', 5).link('A', 'B', 'FF', 10);
+    const r = scheduleProject(b.project);
+    expect(r.calc.get('A')!.totalFloat).toBe(0);
+    expect(r.calc.get('B')!.totalFloat).toBe(0);
+    const b2 = std().task('A', 15).task('B', 3).link('A', 'B', 'SF', 4);
+    const r2 = scheduleProject(b2.project);
+    expect(Math.min(...[...r2.calc.values()].map((c) => c.totalFloat))).toBeGreaterThanOrEqual(0);
+  });
   it('1 elapsed day over a weekend costs nothing (finish is Sat 00:00)', () => {
     const b = std().task('A', 5).task('B', 1).link('A', 'B', 'FS', 1, 'ed');
     expect(scheduleProject(b.project).calc.get('B')!.earlyStart).toBe('2027-01-11');
