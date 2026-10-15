@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import {
   activeBaseline,
+  CONSTRAINT_LABEL,
   dayToLocalDate,
   displayFinishDay,
   finishVariance,
@@ -11,8 +12,8 @@ import type { Derived } from '../store/derive';
 import { linkTexts, phaseColorOf } from '../ui/rows';
 
 const DATE_FMT = 'ddd dd mmm yy';
-const CRIT_COLOR = '#DC2626';
-const SUMMARY_COLOR = '#374151';
+const CRIT_COLOR = '#B3261E';
+const SUMMARY_COLOR = '#2A211E';
 
 /**
  * Two-sheet workbook: the task table, and a weekly Gantt with shaded cells.
@@ -32,19 +33,19 @@ export function buildWorkbook(project: Project, derived: Derived): Uint8Array {
     'ID',
     'WBS',
     'Name',
-    'Duration (d)',
+    'Duration (working days)',
     'Start',
     'Finish',
     'Predecessors',
     'Successors',
     'Responsible',
     '% Complete',
-    'Total float (d)',
-    'Free float (d)',
+    'Total float (working days)',
+    'Free float (working days)',
     'Critical',
     'Baseline start',
     'Baseline finish',
-    'Finish variance (d)',
+    'Finish variance (working days)',
     'Constraint',
     'Constraint date',
     'Actual start',
@@ -76,7 +77,7 @@ export function buildWorkbook(project: Project, derived: Derived): Uint8Array {
       isoDate(b?.start),
       isoDate(b?.finish),
       finishVariance(project, c, b) ?? '',
-      t.constraint.type === 'ASAP' ? '' : t.constraint.type,
+      t.constraint.type === 'ASAP' ? '' : CONSTRAINT_LABEL[t.constraint.type],
       isoDate(t.constraint.date),
       isoDate(t.actualStart),
       isoDate(t.actualFinish),

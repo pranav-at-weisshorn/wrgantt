@@ -7,8 +7,6 @@ import { FileMenu } from './FileMenu';
 export function TopBar({ onBack }: { onBack: () => void }) {
   const project = useStore((s) => s.project)!;
   const derived = useDerived()!;
-  const theme = useStore((s) => s.prefs.theme);
-  const setPrefs = useStore((s) => s.setPrefs);
   const setDialog = useStore((s) => s.setDialog);
   const { schedule, outline } = derived;
   // Project finish as displayed: the latest inclusive finish of any task.
@@ -17,7 +15,6 @@ export function TopBar({ onBack }: { onBack: () => void }) {
     const c = schedule.calc.get(id);
     if (c) finish = Math.max(finish, displayFinishDay(c));
   }
-  const nextTheme = theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark';
   return (
     <div className="topbar">
       <button
@@ -28,6 +25,8 @@ export function TopBar({ onBack }: { onBack: () => void }) {
       >
         <Icon name="back" />
       </button>
+      <span className="wordmark">Villa Felstead</span>
+      <span className="wordmark-sep" />
       <h1 title={project.name}>{project.name}</h1>
       <span className="meta" data-testid="project-dates">
         {fmtDay(schedule.projectStart)} →{' '}
@@ -38,14 +37,6 @@ export function TopBar({ onBack }: { onBack: () => void }) {
       <FileMenu />
       <button className="btn small" onClick={() => setDialog({ kind: 'settings' })}>
         <Icon name="settings" size={14} /> Settings
-      </button>
-      <button
-        className="btn icon"
-        onClick={() => setPrefs({ theme: nextTheme })}
-        title={`Theme: ${theme} (click for ${nextTheme})`}
-        aria-label="Toggle theme"
-      >
-        <Icon name={theme === 'dark' ? 'moon' : 'sun'} />
       </button>
     </div>
   );

@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import type { Draft } from 'immer';
 import {
+  days,
+  DEP_TYPE_HELP,
+  DEP_TYPE_LABEL,
   displayFinishDay,
   newId,
   type ConstraintType,
@@ -160,8 +163,10 @@ export function TaskDialog({ taskId, tab: initialTab }: { taskId: string; tab?: 
                       onChange={(e) => upd({ type: e.target.value as DepType })}
                       aria-label="Link type"
                     >
-                      {['FS', 'SS', 'FF', 'SF'].map((t) => (
-                        <option key={t}>{t}</option>
+                      {(['FS', 'SS', 'FF', 'SF'] as DepType[]).map((t) => (
+                        <option key={t} value={t} title={DEP_TYPE_HELP[t]}>
+                          {DEP_TYPE_LABEL[t]}
+                        </option>
                       ))}
                     </select>
                   </td>
@@ -183,7 +188,7 @@ export function TaskDialog({ taskId, tab: initialTab }: { taskId: string; tab?: 
                       aria-label="Lag unit"
                     >
                       <option value="wd">working days</option>
-                      <option value="ed">elapsed days</option>
+                      <option value="ed">calendar days</option>
                     </select>
                   </td>
                   <td>
@@ -280,7 +285,9 @@ export function TaskDialog({ taskId, tab: initialTab }: { taskId: string; tab?: 
                 onChange={(e) => set({ duration: e.target.value })}
               />
               <span className="hint">
-                {isSummary ? 'Computed from subtasks' : '0 = milestone; accepts 10, 2w, 1mo'}
+                {isSummary
+                  ? 'Computed from subtasks'
+                  : '0 = milestone; accepts 10, 2 weeks, 1 month'}
               </span>
             </div>
             <label htmlFor="td-cal">Calendar</label>
@@ -380,8 +387,8 @@ export function TaskDialog({ taskId, tab: initialTab }: { taskId: string; tab?: 
             {c && (
               <p className="hint full">
                 Early {fmtDay(c.es)} – {fmtDay(displayFinishDay(c))} · Late {fmtDay(c.ls)} –{' '}
-                {fmtDay(c.lf > c.ls ? c.lf - 1 : c.ls)} · Total float {c.totalFloat}d · Free float{' '}
-                {c.freeFloat}d
+                {fmtDay(c.lf > c.ls ? c.lf - 1 : c.ls)} · Total float {days(c.totalFloat)} · Free
+                float {days(c.freeFloat)}
               </p>
             )}
           </div>

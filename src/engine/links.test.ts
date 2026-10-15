@@ -29,12 +29,36 @@ describe('parseLinkList', () => {
     expect(parseLinkList('12XX').errors).toHaveLength(1);
     expect(parseLinkList('abc').errors).toHaveLength(1);
   });
-  it('round-trips through formatLink', () => {
-    expect(formatLink(12, 'FS', 0, 'wd')).toBe('12');
-    expect(formatLink(18, 'SS', 10, 'wd')).toBe('18SS+10d');
-    expect(formatLink(23, 'FF', -2, 'wd')).toBe('23FF-2d');
-    expect(formatLink(30, 'SF', 0, 'wd')).toBe('30SF');
-    expect(formatLink(41, 'FS', 30, 'ed')).toBe('41FS+30ed');
+  it('formats links in full, without abbreviations', () => {
+    expect(formatLink(12, 'FS', 0, 'wd')).toBe('12 Finish-to-Start');
+    expect(formatLink(18, 'SS', 10, 'wd')).toBe('18 Start-to-Start +10 working days');
+    expect(formatLink(23, 'FF', -2, 'wd')).toBe('23 Finish-to-Finish -2 working days');
+    expect(formatLink(30, 'SF', 0, 'wd')).toBe('30 Start-to-Finish');
+    expect(formatLink(41, 'FS', 30, 'ed')).toBe('41 Finish-to-Start +30 calendar days');
+    expect(formatLink(5, 'FS', 1, 'wd')).toBe('5 Finish-to-Start +1 working day');
+  });
+  it('parses the full forms back (round trip)', () => {
+    const shown = [
+      formatLink(12, 'FS', 0, 'wd'),
+      formatLink(18, 'SS', 10, 'wd'),
+      formatLink(23, 'FF', -2, 'wd'),
+      formatLink(30, 'SF', 0, 'wd'),
+      formatLink(41, 'FS', 30, 'ed'),
+    ].join(', ');
+    const { links, errors } = parseLinkList(shown);
+    expect(errors).toEqual([]);
+    expect(links).toEqual(parseLinkList('12, 18SS+10d, 23FF-2d, 30SF, 41FS+30ed').links);
+  });
+  it('accepts free-form spacing and wording', () => {
+    const { links, errors } = parseLinkList(
+      '7 start to start + 3 working days; 8 finish-to-finish − 1 day, 9 + 2 calendar weeks',
+    );
+    expect(errors).toEqual([]);
+    expect(links.map((l) => [l.rowId, l.type, l.lag, l.lagUnit])).toEqual([
+      [7, 'SS', 3, 'wd'],
+      [8, 'FF', -1, 'wd'],
+      [9, 'FS', 14, 'ed'],
+    ]);
   });
 });
 

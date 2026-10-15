@@ -1,5 +1,7 @@
 const PATHS: Record<string, string> = {
   chevRight: 'M9 6l6 6-6 6',
+  up: 'M12 19V5M6 11l6-6 6 6',
+  down: 'M12 5v14M6 13l6 6 6-6',
   chevDown: 'M6 9l6 6 6-6',
   warn: 'M12 3l10 18H2L12 3zm0 7v5m0 3v.01',
   pin: 'M8 3h8l-1 7 3 3H6l3-3-1-7zm4 10v8',

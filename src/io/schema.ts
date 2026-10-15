@@ -22,6 +22,21 @@ export interface ProjectFile {
   project: Project;
 }
 
+/** Phase colours of the first template version, mapped to the Villa Felstead earth tones. */
+const LEGACY_PHASE_COLORS: Record<string, string> = {
+  '#3b82f6': '#8c7067',
+  '#10b981': '#6f8a6a',
+  '#8b5cf6': '#8a6f8f',
+  '#06b6d4': '#5f8496',
+  '#78716c': '#a0907c',
+  '#ec4899': '#b8826b',
+  '#6366f1': '#6b6f94',
+  '#84cc16': '#9a9a5c',
+  '#f59e0b': '#c8a46e',
+  '#64748b': '#6f9c9a',
+  '#14b8a6': '#4e7364',
+};
+
 const DEP_TYPES: DepType[] = ['FS', 'SS', 'FF', 'SF'];
 const CONSTRAINTS: ConstraintType[] = ['ASAP', 'SNET', 'SNLT', 'FNET', 'FNLT', 'MSO', 'MFO'];
 
@@ -85,7 +100,9 @@ export function normaliseProject(raw: unknown): Project {
       percentComplete: Math.max(0, Math.min(100, num(t.percentComplete))),
     };
     if (typeof t.templateKey === 'string') task.templateKey = t.templateKey;
-    if (typeof t.phaseColor === 'string') task.phaseColor = t.phaseColor;
+    if (typeof t.phaseColor === 'string') {
+      task.phaseColor = LEGACY_PHASE_COLORS[t.phaseColor.toLowerCase()] ?? t.phaseColor;
+    }
     const as = isoOpt(t.actualStart);
     const af = isoOpt(t.actualFinish);
     if (as) task.actualStart = as;

@@ -1,5 +1,5 @@
 import { format, isValid, parse } from 'date-fns';
-import { dayToLocalDate, isoToDay, localDateToDay, dayToIso } from '../engine';
+import { dayToLocalDate, days, isoToDay, localDateToDay, dayToIso, signedDays } from '../engine';
 
 export const DATE_FMT = 'EEE dd MMM yy';
 
@@ -67,10 +67,10 @@ export function parseDuration(text: string): number | null {
 }
 
 export function fmtDuration(d: number): string {
-  return `${d}d`;
+  return days(d);
 }
 
 export function fmtSigned(n: number | null | undefined): string {
   if (n === null || n === undefined) return '';
-  return n > 0 ? `+${n}d` : `${n}d`;
+  return signedDays(n);
 }

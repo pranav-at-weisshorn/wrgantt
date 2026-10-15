@@ -48,7 +48,7 @@ describe('Excel export', () => {
     const solid = styles.match(/patternType="solid"/g) ?? [];
     // 11 phase colours + critical red + summary grey.
     expect(solid.length).toBeGreaterThanOrEqual(12);
-    expect(styles).toContain('rgb="FFDC2626"');
+    expect(styles).toContain('rgb="FFB3261E"');
     expect(styles).toMatch(
       /fillId="\d+" borderId="0" xfId="0" applyNumberFormat="1" applyFill="1"/,
     );

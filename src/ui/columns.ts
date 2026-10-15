@@ -1,4 +1,11 @@
-import { displayFinishDay, finishVariance, isoToDay, type Baseline, type Project } from '../engine';
+import {
+  days,
+  displayFinishDay,
+  finishVariance,
+  isoToDay,
+  type Baseline,
+  type Project,
+} from '../engine';
 import type { ColumnKey } from '../store/prefs';
 import { fmtDay, fmtIso, fmtSigned } from './format';
 import { linkTexts, type Row } from './rows';
@@ -45,12 +52,12 @@ export const COLUMNS: ColumnDef[] = [
   {
     key: 'duration',
     label: 'Duration',
-    width: 70,
+    width: 86,
     align: 'right',
     hideable: true,
     edit: 'duration',
     leafOnly: true,
-    text: (r) => (r.calc ? `${r.isSummary ? r.calc.duration : r.task.duration}d` : ''),
+    text: (r) => (r.calc ? days(r.isSummary ? r.calc.duration : r.task.duration) : ''),
   },
   {
     key: 'start',
@@ -73,7 +80,7 @@ export const COLUMNS: ColumnDef[] = [
   {
     key: 'predecessors',
     label: 'Predecessors',
-    width: 130,
+    width: 250,
     hideable: true,
     edit: 'preds',
     text: (r, c) => linkTexts(c.project).preds.get(r.id) ?? '',
@@ -81,7 +88,7 @@ export const COLUMNS: ColumnDef[] = [
   {
     key: 'successors',
     label: 'Successors',
-    width: 130,
+    width: 250,
     hideable: true,
     text: (r, c) => linkTexts(c.project).succs.get(r.id) ?? '',
   },
@@ -95,7 +102,7 @@ export const COLUMNS: ColumnDef[] = [
   },
   {
     key: 'percent',
-    label: '% Comp.',
+    label: '% Complete',
     width: 66,
     align: 'right',
     hideable: true,
@@ -106,10 +113,10 @@ export const COLUMNS: ColumnDef[] = [
   {
     key: 'totalFloat',
     label: 'Total float',
-    width: 74,
+    width: 84,
     align: 'right',
     hideable: true,
-    text: (r) => (r.calc && r.calc.percentComplete < 100 ? `${r.calc.totalFloat}d` : ''),
+    text: (r) => (r.calc && r.calc.percentComplete < 100 ? days(r.calc.totalFloat) : ''),
   },
   {
     key: 'baselineStart',
@@ -127,7 +134,7 @@ export const COLUMNS: ColumnDef[] = [
   },
   {
     key: 'finishVariance',
-    label: 'Finish var.',
+    label: 'Finish variance',
     width: 76,
     align: 'right',
     hideable: true,

@@ -5,20 +5,6 @@ import { ProjectList } from './ProjectList';
 import { ProjectView } from './ProjectView';
 import { Toasts } from './Toasts';
 
-function useTheme() {
-  const theme = useStore((s) => s.prefs.theme);
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const apply = () => {
-      const dark = theme === 'dark' || (theme === 'system' && mq.matches);
-      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-    };
-    apply();
-    mq.addEventListener('change', apply);
-    return () => mq.removeEventListener('change', apply);
-  }, [theme]);
-}
-
 /** `#/` = project list, `#/p/<id>` = a project. */
 function parseHash(): string | null {
   const m = /^#\/p\/([\w-]+)/.exec(window.location.hash);
@@ -26,7 +12,6 @@ function parseHash(): string | null {
 }
 
 export function App() {
-  useTheme();
   const project = useStore((s) => s.project);
   const [routeId, setRouteId] = useState<string | null>(parseHash);
   const [loading, setLoading] = useState(false);

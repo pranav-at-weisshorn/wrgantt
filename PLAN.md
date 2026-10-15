@@ -201,3 +201,24 @@ Edge (`channel: 'msedge'`) to avoid downloading a browser.
   at a median 16 ms/frame (p95 21 ms) thanks to row virtualisation.
 - `npm run build`: type-checks and builds; SheetJS is loaded on demand (only for Excel export
   and CSV import), keeping the main bundle at ~117 kB gzipped.
+
+## Villa Felstead branding (follow-up request)
+
+Source: `VILLAFELSTEAD_BrandGuidelines.pdf` (July 2026). Decisions confirmed with the user:
+
+- **Typography**: GT Standard, Regular weight only (as in the guidelines). Loaded with
+  `@font-face { src: local('GT Standard M Regular') }` from the installed fonts — nothing is
+  bundled. Fallback: Helvetica Neue / Helvetica / Arial.
+- **Colours**: interface uses only brand colours (Glacier white, Sandstone 25/50 %, Sandstone,
+  Mocca, Interior warmth, Dark wood). Phase bars use 11 muted earth tones chosen to sit with the
+  palette; the **critical path stays red** (#B3261E) as a functional signal. Saved projects that
+  still carry the first template's bright phase colours are mapped to the new tones on load.
+- **Style**: uppercase tracked labels, Dark wood rules under headers, pill buttons, square-ish
+  dialogs, "VILLA FELSTEAD" text wordmark. **Dark mode removed.**
+- **IDs kept** (the user's choice) and renumbered automatically on insert/move/delete.
+- **No abbreviations** in the interface: link types are written out (Finish-to-Start …), lags
+  read "+10 working days" / "+30 calendar days" ("elapsed days" renamed to calendar days),
+  durations and float read "10 days", constraints use their full names. The predecessor cell
+  accepts the full forms and still accepts the short forms as typing shortcuts.
+- **Move up / down** swaps a task (with its subtasks) with its neighbour inside the same parent.
+- **Right-click menu** on grid rows and timeline bars.

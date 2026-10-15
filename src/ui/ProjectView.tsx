@@ -11,6 +11,7 @@ import { activeBaseline, isoToDay, todayDay } from '../engine';
 import { ZOOMS } from '../store/prefs';
 import { useDerived, useStore } from '../store/store';
 import { COLUMNS } from './columns';
+import { ContextMenu } from './ContextMenu';
 import { DialogHost } from './dialogs/DialogHost';
 import { Grid } from './grid/Grid';
 import { SidePanel } from './panels/SidePanel';
@@ -185,7 +186,7 @@ export function ProjectView({ onBack }: { onBack: () => void }) {
     <>
       <div className="app">
         <TopBar onBack={onBack} />
-        <Toolbar scale={scale} />
+        <Toolbar />
         <div className="main">
           <div className="split">
             <Grid
@@ -222,6 +223,7 @@ export function ProjectView({ onBack }: { onBack: () => void }) {
           {panel && <SidePanel />}
         </div>
         <DialogHost />
+        <ContextMenu />
       </div>
       <PrintView />
     </>

@@ -22,7 +22,7 @@ export interface CsvImportResult {
  * (header names are matched case-insensitively; column order does not matter).
  *
  * - Predecessors use the predecessor syntax and refer to CSV data row numbers (1 = first row
- *   after the header), e.g. `2, 3SS+5d`.
+ *   after the header), e.g. `2, 3 Start-to-Start +5 working days` (compact `3SS+5d` also works).
  * - Parent WBS refers to the WBS code the parent row gets in the imported outline (e.g. `1` or
  *   `2.3`); leave it empty for a top-level task. Parents must appear before their children.
  */
@@ -75,7 +75,8 @@ export function projectFromCsv(text: string, name: string): CsvImportResult {
     const durText = cell(ci.duration);
     if (durText) {
       const d = parseDuration(durText);
-      if (d === null) warnings.push(`Row ${rowNo}: duration "${durText}" not understood; using 1d`);
+      if (d === null)
+        warnings.push(`Row ${rowNo}: duration "${durText}" not understood; using 1 day`);
       else duration = d;
     }
     const task = blankTask({

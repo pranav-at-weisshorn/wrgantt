@@ -27,7 +27,7 @@ test('template loads; a duration change moves successors and the project finish'
   await page.getByTestId('editor-duration').fill('20');
   await page.keyboard.press('Enter');
 
-  await expect(cell(4, 'duration')).toHaveText('20d');
+  await expect(cell(4, 'duration')).toHaveText('20 days');
   // 10 more working days: A04 now starts two weeks later.
   await expect(cell(5, 'start')).toHaveText('Mon 14 Dec 26');
   await expect(cell(6, 'start')).not.toHaveText('Mon 21 Dec 26');

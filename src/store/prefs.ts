@@ -27,7 +27,6 @@ export interface Prefs {
   showLabels: boolean;
   columns: Record<ColumnKey, boolean>;
   gridWidth: number;
-  theme: 'system' | 'light' | 'dark';
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -55,7 +54,6 @@ export const DEFAULT_PREFS: Prefs = {
     notes: false,
   },
   gridWidth: 760,
-  theme: 'system',
 };
 
 const KEY = 'condo-gantt:prefs';

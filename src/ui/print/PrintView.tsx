@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
-import { activeBaseline, displayFinishDay, isoToDay, todayDay } from '../../engine';
+import { activeBaseline, days, displayFinishDay, isoToDay, todayDay } from '../../engine';
 import { useDerived, useStore } from '../../store/store';
 import { fmtDay, fmtLong } from '../format';
 import { phaseColorOf } from '../rows';
@@ -78,7 +78,7 @@ export function PrintView() {
             stroke="#999"
             strokeWidth={0.5}
           />
-          <text x={x(Math.max(t.day, s0)) + 2} y={10} fontSize={8} fontWeight={700}>
+          <text x={x(Math.max(t.day, s0)) + 2} y={10} fontSize={8}>
             {t.label}
           </text>
         </g>
@@ -101,7 +101,7 @@ export function PrintView() {
     if (!c) return null;
     const summary = outline.isSummary(id);
     const color =
-      showCritical && c.critical && !summary ? '#dc2626' : phaseColorOf(project, derived, id);
+      showCritical && c.critical && !summary ? '#b3261e' : phaseColorOf(project, derived, id);
     const b = bl?.tasks[id];
     return (
       <svg viewBox={`0 0 ${GW} ${RH}`} preserveAspectRatio="none" style={{ height: RH }}>
@@ -122,13 +122,13 @@ export function PrintView() {
             x2={x(status)}
             y1={0}
             y2={RH}
-            stroke="#a855f7"
+            stroke="#8c7067"
             strokeWidth={0.6}
             strokeDasharray="2 1.5"
           />
         )}
         {today >= s0 && today <= end + 7 && (
-          <line x1={x(today)} x2={x(today)} y1={0} y2={RH} stroke="#2563eb" strokeWidth={0.6} />
+          <line x1={x(today)} x2={x(today)} y1={0} y2={RH} stroke="#462f28" strokeWidth={0.6} />
         )}
         {b && (
           <rect
@@ -136,7 +136,7 @@ export function PrintView() {
             y={RH - 3}
             width={Math.max(0.8, x(isoToDay(b.finish) + 1) - x(isoToDay(b.start)))}
             height={2}
-            fill="#9ca3af"
+            fill="#c4b8ad"
           />
         )}
         {summary ? (
@@ -145,7 +145,7 @@ export function PrintView() {
             y={4}
             width={Math.max(0.8, x(c.ef) - x(c.es))}
             height={3}
-            fill="#374151"
+            fill="#2a211e"
           />
         ) : c.isMilestone ? (
           <rect
@@ -202,7 +202,7 @@ export function PrintView() {
           <tr>
             <th>ID</th>
             <th>Task</th>
-            <th>Dur.</th>
+            <th>Duration</th>
             <th>Start</th>
             <th>Finish</th>
             <th>%</th>
@@ -218,7 +218,7 @@ export function PrintView() {
               <tr key={id} className={summary ? 'summary' : undefined}>
                 <td>{t.rowId}</td>
                 <td style={{ paddingLeft: 3 + (outline.depth.get(id) ?? 0) * 8 }}>{t.name}</td>
-                <td>{c ? `${summary ? c.duration : t.duration}d` : ''}</td>
+                <td>{c ? days(summary ? c.duration : t.duration) : ''}</td>
                 <td>{c ? fmtDay(c.es) : ''}</td>
                 <td>{c ? fmtDay(displayFinishDay(c)) : ''}</td>
                 <td>{c ? Math.round(c.percentComplete) : ''}</td>

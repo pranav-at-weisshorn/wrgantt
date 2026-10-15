@@ -119,18 +119,36 @@ export function setPredecessorsText(id: string, text: string): CommitResult {
 
 // ------------------------------------------------------------------ structure
 
-/** Insert a new task above `beforeId` (same level), or at the end. Returns the new id. */
-export function insertTask(beforeId: string | null, init: Partial<Task> = {}): string | null {
+export type InsertPosition = 'above' | 'below' | 'inside';
+
+/**
+ * Insert a new task next to `refId`: above or below it at the same level, or as its last
+ * subtask. With no reference the task goes at the end. Returns the new id.
+ */
+export function insertTaskAt(
+  refId: string | null,
+  position: InsertPosition = 'above',
+  init: Partial<Task> = {},
+): string | null {
   const p = st().project;
   if (!p) return null;
   const task = blankTask({ calendarId: p.projectCalendarId, ...init });
   const r = st().commit(
-    'Insert task',
+    position === 'inside' ? 'Insert subtask' : 'Insert task',
     (d) => {
-      if (beforeId) {
-        const ref = findTask(d, beforeId);
-        task.parentId = ref.parentId;
-        task.order = ref.order - 0.5; // renumber() normalises the sibling order
+      if (refId) {
+        const ref = findTask(d, refId);
+        if (position === 'inside') {
+          const kids = siblingsOf(d, ref.id);
+          task.parentId = ref.id;
+          task.order = kids.length ? kids[kids.length - 1].order + 1 : 0;
+          // A task that becomes a summary no longer has its own constraint.
+          ref.constraint = { type: 'ASAP' };
+        } else {
+          task.parentId = ref.parentId;
+          // renumber() normalises the sibling order.
+          task.order = ref.order + (position === 'above' ? -0.5 : 0.5);
+        }
       } else {
         const top = siblingsOf(d, null);
         task.order = top.length ? top[top.length - 1].order + 1 : 0;
@@ -140,6 +158,43 @@ export function insertTask(beforeId: string | null, init: Partial<Task> = {}): s
     { structural: true },
   );
   return r.ok ? task.id : null;
+}
+
+/** Insert a new task above `beforeId` (same level), or at the end. Returns the new id. */
+export function insertTask(beforeId: string | null, init: Partial<Task> = {}): string | null {
+  return insertTaskAt(beforeId, 'above', init);
+}
+
+/** Whether a task can move one place up (-1) or down (+1) among its siblings. */
+export function canMoveTask(project: Project, id: string, dir: -1 | 1): boolean {
+  const t = project.tasks.find((x) => x.id === id);
+  if (!t) return false;
+  const sibs = project.tasks
+    .filter((x) => (x.parentId ?? null) === (t.parentId ?? null))
+    .sort((a, b) => a.order - b.order);
+  const i = sibs.findIndex((x) => x.id === id);
+  return i + dir >= 0 && i + dir < sibs.length;
+}
+
+/**
+ * Move a task (with its subtasks) one place up or down within its parent. Row IDs renumber;
+ * links are kept because they refer to tasks, not row numbers.
+ */
+export function moveTaskBy(id: string, dir: -1 | 1): CommitResult {
+  const p = st().project;
+  if (!p || !canMoveTask(p, id, dir)) return { ok: false };
+  return st().commit(
+    dir < 0 ? 'Move task up' : 'Move task down',
+    (d) => {
+      const t = findTask(d, id);
+      const sibs = siblingsOf(d, t.parentId);
+      const other = sibs[sibs.findIndex((x) => x.id === id) + dir];
+      const o = other.order;
+      other.order = t.order;
+      t.order = o;
+    },
+    { structural: true },
+  );
 }
 
 export function deleteTasks(ids: string[]) {

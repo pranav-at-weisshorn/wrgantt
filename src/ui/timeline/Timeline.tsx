@@ -12,6 +12,8 @@ import {
 } from 'react';
 import {
   activeBaseline,
+  CONSTRAINT_LABEL,
+  days,
   dayToIso,
   displayFinishDay,
   finishVariance,
@@ -65,6 +67,7 @@ export function Timeline(props: Props) {
   const selectedId = useStore((s) => s.selectedId);
   const select = useStore((s) => s.select);
   const setDialog = useStore((s) => s.setDialog);
+  const openContextMenu = useStore((s) => s.openContextMenu);
   const scrollRequest = useStore((s) => s.scrollRequest);
   const toast = useStore((s) => s.toast);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -353,6 +356,15 @@ export function Timeline(props: Props) {
           width={scale.width}
           height={Math.max(height, 1)}
           onPointerDown={() => select(null)}
+          onContextMenu={(e) => {
+            // Right-click a bar (or anywhere on its row) for the task's options.
+            const row = rows[rowAtY(e.clientY)];
+            if (!row) return;
+            e.preventDefault();
+            setHover(null);
+            select(row.id);
+            openContextMenu({ taskId: row.id, x: e.clientX, y: e.clientY });
+          }}
         >
           <defs>
             <marker
@@ -596,7 +608,11 @@ const BarRow = memo(function BarRow(p: BarRowProps) {
     );
   }
 
-  const fillColor = p.crit && p.critStyle === 'fill' ? 'var(--crit)' : row.color;
+  const critFill = p.crit && p.critStyle === 'fill';
+  const fillColor = critFill ? 'var(--crit)' : row.color;
+  // Red at low opacity reads as pink, so critical bars stay strong; progress shows darker.
+  const remainingOpacity = critFill ? 0.82 : 0.45;
+  const progressColor = critFill ? '#6e1611' : fillColor;
   const stroke = p.crit && p.critStyle === 'outline' ? 'var(--crit)' : 'none';
 
   if (c.isMilestone) {
@@ -640,14 +656,22 @@ const BarRow = memo(function BarRow(p: BarRowProps) {
         height={g.h}
         rx={3}
         fill={fillColor}
-        fillOpacity={0.42}
+        fillOpacity={remainingOpacity}
         stroke={stroke}
         strokeWidth={2}
         onPointerDown={(e) => p.onPointerDown(e, row, 'move')}
         data-testid="bar"
       />
       {pw > 0 && (
-        <rect x={x0} y={y} width={pw} height={g.h} rx={3} fill={fillColor} pointerEvents="none" />
+        <rect
+          x={x0}
+          y={y}
+          width={pw}
+          height={g.h}
+          rx={3}
+          fill={progressColor}
+          pointerEvents="none"
+        />
       )}
       <rect
         className="bar-handle"
@@ -700,13 +724,14 @@ function BarTooltip(p: {
         <dt>{p.ghost ? 'New finish' : 'Finish'}</dt>
         <dd>{fmtDay(fin)}</dd>
         <dt>Duration</dt>
-        <dd>{c.isMilestone && !p.ghost ? 'Milestone' : `${dur}d`}</dd>
+        <dd>{c.isMilestone && !p.ghost ? 'Milestone' : days(dur)}</dd>
         <dt>Total float</dt>
         <dd style={{ color: c.totalFloat < 0 ? 'var(--danger)' : undefined }}>
-          {c.totalFloat}d{c.critical ? ' (critical)' : ''}
+          {days(c.totalFloat)}
+          {c.critical ? ' (critical)' : ''}
         </dd>
         <dt>Free float</dt>
-        <dd>{c.freeFloat}d</dd>
+        <dd>{days(c.freeFloat)}</dd>
         <dt>Predecessors</dt>
         <dd>{linkTexts(p.project).preds.get(p.id) || '—'}</dd>
         <dt>Responsible</dt>
@@ -727,7 +752,7 @@ function BarTooltip(p: {
           <>
             <dt>Warning</dt>
             <dd style={{ color: 'var(--danger)' }}>
-              {t.constraint.type} {t.constraint.date} conflicts with logic
+              {CONSTRAINT_LABEL[t.constraint.type]} {t.constraint.date} conflicts with the links
             </dd>
           </>
         )}

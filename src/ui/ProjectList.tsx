@@ -26,8 +26,6 @@ export function ProjectList({ onOpen }: { onOpen: (id: string) => void }) {
   const [name, setName] = useState('');
   const [start, setStart] = useState(defaultStartDate());
   const toast = useStore((s) => s.toast);
-  const theme = useStore((s) => s.prefs.theme);
-  const setPrefs = useStore((s) => s.setPrefs);
 
   const refresh = useCallback(() => {
     listProjects()
@@ -76,21 +74,11 @@ export function ProjectList({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <div className="app" style={{ overflow: 'auto' }}>
       <div className="plist">
-        <div className="row-inline">
-          <h1 style={{ flex: 1 }}>Condo development schedules</h1>
-          <button
-            className="btn icon"
-            onClick={() =>
-              setPrefs({
-                theme: theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark',
-              })
-            }
-            aria-label="Toggle theme"
-            title={`Theme: ${theme}`}
-          >
-            <Icon name={theme === 'dark' ? 'moon' : 'sun'} />
-          </button>
+        <div className="plist-brand">
+          <span className="wordmark">Villa Felstead</span>
+          <span className="hint">A real estate project by Weisshorn</span>
         </div>
+        <h1>Project schedules</h1>
         <p className="hint">
           Projects are saved in this browser (IndexedDB). Export to .gantt.json to back up or share.
         </p>

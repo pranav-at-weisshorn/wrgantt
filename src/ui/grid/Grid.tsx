@@ -7,12 +7,13 @@ import {
   type RefObject,
   type UIEvent,
 } from 'react';
-import { activeBaseline, type Project } from '../../engine';
+import { activeBaseline, CONSTRAINT_LABEL, type Project } from '../../engine';
 import type { Derived } from '../../store/derive';
 import {
   indentTask,
   insertTask,
   moveTask,
+  moveTaskBy,
   outdentTask,
   renameTask,
   setDuration,
@@ -25,7 +26,7 @@ import {
 import type { ColumnKey } from '../../store/prefs';
 import { useStore, type CommitResult } from '../../store/store';
 import { editValue, type ColumnCtx, type ColumnDef } from '../columns';
-import { parseDateInput, parseDuration } from '../format';
+import { fmtIso, parseDateInput, parseDuration } from '../format';
 import { Icon } from '../icons';
 import { HEADER_H, ROW_H, type Row } from '../rows';
 import { confirmDeleteTasks } from '../actions';
@@ -65,6 +66,7 @@ export function Grid(props: Props) {
   const toggleCollapsed = useStore((s) => s.toggleCollapsed);
   const showCritical = useStore((s) => s.prefs.showCritical);
   const setDialog = useStore((s) => s.setDialog);
+  const openContextMenu = useStore((s) => s.openContextMenu);
   const [activeCol, setActiveCol] = useState<ColumnKey>('name');
   const [editing, setEditing] = useState<Editing | null>(null);
   const [rowDrag, setRowDrag] = useState<RowDrag | null>(null);
@@ -96,6 +98,34 @@ export function Grid(props: Props) {
   }, [rowIndex, editing]);
 
   const focusGrid = () => rootRef.current?.focus({ preventScroll: true });
+
+  // Open the name editor when asked from outside (context menu "Insert task…").
+  const editRequest = useStore((s) => s.editRequest);
+  useEffect(() => {
+    if (!editRequest) return;
+    const row = rows[rowIndex.get(editRequest.taskId) ?? -1];
+    if (!row) return;
+    setActiveCol('name');
+    setEditing({ id: row.id, col: 'name', value: row.task.name, selectAll: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editRequest]);
+
+  // Keep a moved row in view once the rows have been recomputed.
+  const keepVisible = useRef<string | null>(null);
+  useEffect(() => {
+    const id = keepVisible.current;
+    if (!id) return;
+    keepVisible.current = null;
+    const idx = rowIndex.get(id);
+    if (idx !== undefined) ensureVisible(idx);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowIndex]);
+
+  const openMenuFor = (row: Row, x: number, y: number) => {
+    if (editing && !commitEdit()) return;
+    select(row.id);
+    openContextMenu({ taskId: row.id, x, y });
+  };
 
   const ensureVisible = (idx: number) => {
     const el = bodyRef.current;
@@ -157,7 +187,10 @@ export function Grid(props: Props) {
         const d = parseDuration(v);
         res =
           d === null
-            ? { ok: false, error: 'Enter a duration such as 10, 10d, 2w or 0 for a milestone' }
+            ? {
+                ok: false,
+                error: 'Enter a duration such as 10, 10 days, 2 weeks, or 0 for a milestone',
+              }
             : setDuration(row.id, d);
         break;
       }
@@ -224,6 +257,21 @@ export function Grid(props: Props) {
     const row = selectedId ? rows[rowIndex.get(selectedId) ?? -1] : undefined;
     const colIdx = editableCols.findIndex((c) => c.key === activeCol);
     const mod = e.ctrlKey || e.metaKey;
+    if (row && e.altKey && e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault();
+      keepVisible.current = row.id;
+      moveTaskBy(row.id, e.key === 'ArrowUp' ? -1 : 1);
+      return;
+    }
+    if (row && (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10'))) {
+      e.preventDefault();
+      const cell = rootRef.current?.querySelector(
+        `[data-row-id="${row.task.rowId}"] [data-col="name"]`,
+      );
+      const r = cell?.getBoundingClientRect();
+      openMenuFor(row, r ? r.left + 24 : 100, r ? r.bottom : 100);
+      return;
+    }
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
@@ -445,6 +493,7 @@ export function Grid(props: Props) {
             const cls = ['grid-row'];
             if (row.id === selectedId) cls.push('selected');
             if (row.isSummary) cls.push('summary');
+            if (row.isSummary && row.depth === 0) cls.push('phase');
             if (rowDrag?.active && rowDrag.target?.id === row.id && rowDrag.id !== row.id) {
               cls.push(`drop-${rowDrag.target.pos}`);
             }
@@ -459,6 +508,10 @@ export function Grid(props: Props) {
                 }}
                 data-row-id={row.task.rowId}
                 data-testid="grid-row"
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  openMenuFor(row, e.clientX, e.clientY);
+                }}
               >
                 {columns.map((c) => renderCell(row, c))}
               </div>
@@ -488,7 +541,7 @@ function Indicators({ row }: { row: Row }) {
       <span
         key="v"
         className="warn"
-        title={`${t.constraint.type} ${t.constraint.date ?? ''} conflicts with logic`}
+        title={`${CONSTRAINT_LABEL[t.constraint.type]} ${fmtIso(t.constraint.date)} conflicts with the links`}
       >
         <Icon name="warn" size={13} />
       </span>,
@@ -497,7 +550,7 @@ function Indicators({ row }: { row: Row }) {
     items.push(
       <span
         key="c"
-        title={`Constraint: ${t.constraint.type} ${t.constraint.date ?? ''}`}
+        title={`${CONSTRAINT_LABEL[t.constraint.type]} ${fmtIso(t.constraint.date)}`}
         data-testid="constraint-icon"
       >
         <Icon name="pin" size={13} />

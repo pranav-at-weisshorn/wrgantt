@@ -8,3 +8,4 @@ export * from './links';
 export * from './health';
 export * from './variance';
 export * from './ids';
+export * from './labels';

@@ -1,4 +1,5 @@
 import { detectCycle } from './graph';
+import { DEP_TYPE_LABEL, lagText } from './labels';
 import { buildOutline, isSelfOrAncestor } from './outline';
 import type { Dependency, DepType, LagUnit, Project } from './types';
 
@@ -9,9 +10,36 @@ export interface ParsedLink {
   lagUnit: LagUnit;
 }
 
-const ITEM = /^(\d+)\s*(FS|SS|FF|SF)?\s*(?:([+-])\s*(\d+(?:\.\d+)?)\s*(ed|ew|wd|d|w)?)?$/i;
+const TYPE_WORDS: Record<string, DepType> = {
+  fs: 'FS',
+  ss: 'SS',
+  ff: 'FF',
+  sf: 'SF',
+  finishtostart: 'FS',
+  starttostart: 'SS',
+  finishtofinish: 'FF',
+  starttofinish: 'SF',
+};
 
-/** Parse "12, 18SS+10d, 23FF-2d, 30SF, 41FS+30ed". */
+const ITEM =
+  /^(\d+)(fs|ss|ff|sf|finishtostart|starttostart|finishtofinish|starttofinish)?(?:([+-])(\d+(?:\.\d+)?)(workingdays?|wd|d|days?|calendardays?|elapseddays?|ed|workingweeks?|weeks?|w|calendarweeks?|ew)?)?$/;
+
+/** Lower-case, unify dashes, join "Finish-to-Start" style words and drop spaces. */
+function compact(part: string): string {
+  return part
+    .toLowerCase()
+    .replace(/[‒-―−]/g, '-')
+    .replace(/(finish|start)[\s-]*to[\s-]*(finish|start)/g, '$1to$2')
+    .replace(/\s+/g, '');
+}
+
+export const PREDECESSOR_EXAMPLE = '12, 18 Start-to-Start +10 working days, 41 +30 calendar days';
+
+/**
+ * Parse a predecessor list. Accepts the full forms shown in the grid
+ * ("18 Start-to-Start +10 working days, 41 Finish-to-Start +30 calendar days") and, as typing
+ * shortcuts, the compact forms ("18SS+10d, 41FS+30ed"). The type defaults to Finish-to-Start.
+ */
 export function parseLinkList(text: string): { links: ParsedLink[]; errors: string[] } {
   const links: ParsedLink[] = [];
   const errors: string[] = [];
@@ -20,36 +48,36 @@ export function parseLinkList(text: string): { links: ParsedLink[]; errors: stri
     .map((s) => s.trim())
     .filter(Boolean);
   for (const part of parts) {
-    const m = ITEM.exec(part.replace(/\s+/g, ''));
+    const m = ITEM.exec(compact(part));
     if (!m) {
-      errors.push(`Cannot read "${part}". Use e.g. 12, 18SS+10d, 23FF-2d, 41FS+30ed`);
+      errors.push(`Cannot read "${part}". Use e.g. ${PREDECESSOR_EXAMPLE}`);
       continue;
     }
     const rowId = parseInt(m[1], 10);
-    const type = ((m[2] ?? 'FS').toUpperCase() as DepType) || 'FS';
+    const type = TYPE_WORDS[m[2] ?? 'fs'];
     let lag = m[4] ? parseFloat(m[4]) : 0;
     if (m[3] === '-') lag = -lag;
-    const unit = (m[5] ?? 'd').toLowerCase();
+    const unit = m[5] ?? 'd';
     let lagUnit: LagUnit = 'wd';
-    if (unit === 'ed') lagUnit = 'ed';
-    else if (unit === 'w') lag *= 5;
-    else if (unit === 'ew') {
+    if (unit === 'ed' || unit.startsWith('calendarday') || unit.startsWith('elapsed'))
+      lagUnit = 'ed';
+    else if (unit === 'ew' || unit.startsWith('calendarweek')) {
       lag *= 7;
       lagUnit = 'ed';
-    }
+    } else if (unit === 'w' || unit.includes('week')) lag *= 5;
     links.push({ rowId, type, lag: Math.round(lag), lagUnit });
   }
   return { links, errors };
 }
 
 export function formatLag(lag: number, unit: LagUnit): string {
-  if (!lag) return '';
-  return `${lag > 0 ? '+' : '-'}${Math.abs(lag)}${unit === 'ed' ? 'ed' : 'd'}`;
+  return lag ? lagText(lag, unit) : '';
 }
 
+/** "12 Finish-to-Start", "18 Start-to-Start +10 working days". */
 export function formatLink(rowId: number | string, type: DepType, lag: number, unit: LagUnit) {
-  if (type === 'FS' && !lag) return String(rowId);
-  return `${rowId}${type}${formatLag(lag, unit)}`;
+  const l = formatLag(lag, unit);
+  return `${rowId} ${DEP_TYPE_LABEL[type]}${l ? ` ${l}` : ''}`;
 }
 
 export interface ResolveResult {

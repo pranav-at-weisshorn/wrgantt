@@ -34,7 +34,7 @@ export const CONDO_TEMPLATE: TemplatePhase[] = [
   {
     key: 'P1',
     name: 'Acquisition & Feasibility',
-    color: '#3b82f6',
+    color: '#8c7067',
     tasks: [
       t('A01', 'Site identified', 'M', '', 'Developer'),
       t('A02', 'Preliminary feasibility & pro forma', 10, 'A01', 'Developer'),
@@ -62,7 +62,7 @@ export const CONDO_TEMPLATE: TemplatePhase[] = [
   {
     key: 'P2',
     name: 'Financing',
-    color: '#10b981',
+    color: '#6f8a6a',
     tasks: [
       t('F01', 'Prepare investor package', 15, 'A11', 'Developer'),
       t('F02', 'Equity raise & subscriptions', 45, 'F01', 'Developer'),
@@ -77,7 +77,7 @@ export const CONDO_TEMPLATE: TemplatePhase[] = [
   {
     key: 'P3',
     name: 'Entitlements & Approvals',
-    color: '#8b5cf6',
+    color: '#8a6f8f',
     tasks: [
       t('E01', 'Pre-application meeting with planning', 5, 'A09', 'Planner'),
       t('E02', 'Traffic impact study', 30, 'D02', 'Traffic engineer'),
@@ -95,7 +95,7 @@ export const CONDO_TEMPLATE: TemplatePhase[] = [
   {
     key: 'P4',
     name: 'Design',
-    color: '#06b6d4',
+    color: '#5f8496',
     tasks: [
       t('D01', 'Architect & consultant team engaged', 15, 'A09', 'Developer'),
       t('D02', 'Concept design & massing', 25, 'D01, A06', 'Architect'),
@@ -117,7 +117,7 @@ export const CONDO_TEMPLATE: TemplatePhase[] = [
   {
     key: 'P5',
     name: 'Permitting',
-    color: '#78716c',
+    color: '#a0907c',
     tasks: [
       t('P01', 'Building permit application submitted', 5, 'D08, E11', 'Architect'),
       t('P02', 'Plan review – cycle 1', 40, 'P01', 'Building dept.'),
@@ -138,7 +138,7 @@ export const CONDO_TEMPLATE: TemplatePhase[] = [
   {
     key: 'P6',
     name: 'Sales & Marketing',
-    color: '#ec4899',
+    color: '#b8826b',
     tasks: [
       t('S01', 'Sales strategy & pricing', 15, 'A11, D03', 'Sales team'),
       t('S02', 'Branding & marketing collateral', 30, 'S01, D05 SS+10d', 'Marketing agency'),
@@ -161,7 +161,7 @@ export const CONDO_TEMPLATE: TemplatePhase[] = [
   {
     key: 'P7',
     name: 'Condo Legal & Association',
-    color: '#6366f1',
+    color: '#6b6f94',
     tasks: [
       t('L01', 'Condo counsel engaged & structure confirmed', 10, 'A12', 'Counsel'),
       t('L02', 'Draft declaration / CC&Rs & bylaws', 30, 'L01, D04 SS+20d', 'Counsel'),
@@ -184,7 +184,7 @@ export const CONDO_TEMPLATE: TemplatePhase[] = [
   {
     key: 'P8',
     name: 'Procurement',
-    color: '#84cc16',
+    color: '#9a9a5c',
     tasks: [
       t('B01', 'GC prequalification', 15, 'D03', 'Developer'),
       t('B02', 'Preconstruction services agreement (CM/GC)', 15, 'B01', 'Developer / GC'),
@@ -202,7 +202,7 @@ export const CONDO_TEMPLATE: TemplatePhase[] = [
   {
     key: 'P9',
     name: 'Construction',
-    color: '#f59e0b',
+    color: '#c8a46e',
     tasks: [
       t('C01', 'Notice to proceed', 'M', 'F08, P05, D09, A15', 'Developer'),
       t('C02', 'Mobilization & site setup', 10, 'C01', 'GC'),
@@ -240,7 +240,7 @@ export const CONDO_TEMPLATE: TemplatePhase[] = [
   {
     key: 'P10',
     name: 'Inspections & Closeout',
-    color: '#64748b',
+    color: '#6f9c9a',
     tasks: [
       t('X01', 'Fire marshal / life-safety final inspection', 5, 'C21, C24', 'Fire marshal'),
       t('X02', 'Building final inspection', 5, 'C25, X01', 'Building dept.'),
@@ -253,7 +253,7 @@ export const CONDO_TEMPLATE: TemplatePhase[] = [
   {
     key: 'P11',
     name: 'Unit Delivery & Handover',
-    color: '#14b8a6',
+    color: '#4e7364',
     tasks: [
       t('H01', 'Buyer pre-delivery inspections', 20, 'C25 FS+5d', 'Sales team / GC'),
       t('H02', 'Deficiency rectification', 20, 'H01 SS+5d', 'GC'),

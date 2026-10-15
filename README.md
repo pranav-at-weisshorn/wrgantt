@@ -8,6 +8,14 @@ the whole lifecycle from site acquisition to handover to the owners' association
 Everything runs in the browser. Projects are stored in the browser's IndexedDB; nothing is sent
 to a server. Export to `.gantt.json` to back up or share a project.
 
+## Look and feel
+
+The interface follows the Villa Felstead brand guidelines: GT Standard (Regular) throughout,
+the Interior warmth / Sandstone / Glacier white palette with Dark wood rules, uppercase tracked
+labels and pill-shaped buttons. GT Standard is used **from the fonts installed on the computer**
+(no font file is bundled, so no web licence is needed); a computer without it falls back to
+Helvetica or Arial. Phase bars use muted earth tones; the critical path stays red.
+
 ## Running it
 
 Requires Node.js 20+.
@@ -35,6 +43,12 @@ download is needed on Windows. Elsewhere, run `npx playwright install chromium` 
 
 - **Projects**: the start page lists saved projects. _New project from template_ creates the
   condo development schedule (121 tasks in 11 phases) from a start date you choose.
+- **Right-click** any row or bar for its options: edit the task, its predecessors or successors,
+  insert a task above/below or a subtask, move up/down, indent/outdent, mark complete, turn into a
+  milestone, or delete. (The Menu key or Shift+F10 opens it from the keyboard.)
+- **Move tasks** up or down with the arrow buttons in the toolbar or Alt+Shift+↑ / ↓. A task
+  moves with its subtasks and stays within its parent; use indent/outdent or drag the ID cell to
+  move it to another phase.
 - **Grid**: double-click a cell, press F2, or just start typing to edit. Enter commits and moves
   down, Esc cancels. Tab / Shift+Tab indent / outdent, Insert adds a row above, Delete deletes
   (asks first if the task has subtasks or links), Ctrl+Z / Ctrl+Shift+Z undo / redo. Drag the ID
@@ -60,23 +74,27 @@ download is needed on Windows. Elsewhere, run `npx playwright install chromium` 
 
 ## Predecessor syntax
 
-The _Predecessors_ column takes a comma-separated list of row IDs (the ID column):
+The _Predecessors_ and _Successors_ columns show links in full, by row ID (the ID column):
 
 ```
-12, 18SS+10d, 23FF-2d, 30SF, 41FS+30ed
+12 Finish-to-Start, 18 Start-to-Start +10 working days, 23 Finish-to-Finish -2 working days, 41 Finish-to-Start +30 calendar days
 ```
 
-| Part                | Meaning                                                                     |
-| ------------------- | --------------------------------------------------------------------------- |
-| `12`                | Finish-to-start from task 12, no lag                                        |
-| `FS` `SS` `FF` `SF` | Link type (default FS)                                                      |
-| `+10d` / `-2d`      | Lag / lead in **working days** of the project calendar (`wd` also accepted) |
-| `+30ed`             | Lag in **elapsed** (calendar) days                                          |
-| `+2w`               | Two working weeks (= 10 working days)                                       |
-| `12+3d`             | A lag without a type means FS                                               |
+You can type exactly that, or the short forms below (they are converted to the full wording):
 
-Unknown IDs, a task linked to itself or to its own summary, and links that would create a loop
-are rejected with a message naming the loop, e.g. `Circular dependency: 12 → 18 → 25 → 12`.
+| You type                                                                                            | Meaning                                                                   |
+| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `12`                                                                                                | Finish-to-Start from task 12 (this task starts after 12 finishes), no lag |
+| `Finish-to-Start`, `Start-to-Start`, `Finish-to-Finish`, `Start-to-Finish` (or `FS` `SS` `FF` `SF`) | Link type; Finish-to-Start if omitted                                     |
+| `+10 working days` (or `+10d`) / `-2 working days`                                                  | Lag, or a lead if negative, in working days of the project calendar       |
+| `+30 calendar days` (or `+30ed`)                                                                    | Lag in calendar days (weekends and holidays count)                        |
+| `+2 weeks`                                                                                          | Ten working days                                                          |
+
+Row IDs renumber automatically when tasks are inserted, moved or deleted (including a whole
+parent task with its subtasks); links always follow the tasks, so the predecessor text updates
+by itself. Unknown IDs, a task linked to itself or to its own summary, and links that would
+create a loop are rejected with a message naming the loop, e.g.
+`Circular dependency: 12 → 18 → 25 → 12`.
 
 ## CSV import
 

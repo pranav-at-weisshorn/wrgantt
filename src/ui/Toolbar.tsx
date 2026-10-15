@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { todayDay } from '../engine';
-import { indentTask, insertTask, outdentTask } from '../store/ops';
+import { canMoveTask, indentTask, insertTask, moveTaskBy, outdentTask } from '../store/ops';
 import { ZOOMS, type ColumnKey } from '../store/prefs';
 import { EMPTY_FILTERS, useDerived, useStore } from '../store/store';
 import { confirmDeleteTasks } from './actions';
@@ -9,11 +9,10 @@ import { fmtIso } from './format';
 import { Icon } from './icons';
 import { Menu } from './Menu';
 import { filtersActive, responsibleParties } from './rows';
-import type { Scale } from './timeline/scale';
 
 const ZOOM_LABEL = { day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter' } as const;
 
-export function Toolbar({ scale }: { scale: Scale }) {
+export function Toolbar() {
   const project = useStore((s) => s.project)!;
   const derived = useDerived()!;
   const s = useStore();
@@ -76,6 +75,24 @@ export function Toolbar({ scale }: { scale: Scale }) {
         onClick={() => selectedId && indentTask(selectedId)}
       >
         <Icon name="indent" />
+      </button>
+      <button
+        className="btn icon"
+        title="Move up (Alt+Shift+Up)"
+        disabled={!selectedId || !canMoveTask(project, selectedId, -1)}
+        onClick={() => selectedId && moveTaskBy(selectedId, -1)}
+        data-testid="move-up"
+      >
+        <Icon name="up" />
+      </button>
+      <button
+        className="btn icon"
+        title="Move down (Alt+Shift+Down)"
+        disabled={!selectedId || !canMoveTask(project, selectedId, 1)}
+        onClick={() => selectedId && moveTaskBy(selectedId, 1)}
+        data-testid="move-down"
+      >
+        <Icon name="down" />
       </button>
       <span className="sep" />
       <input
@@ -277,9 +294,6 @@ export function Toolbar({ scale }: { scale: Scale }) {
         )}
       </button>
       <span className="spacer" />
-      <span className="hint" title="Scale">
-        {scale.zoom}
-      </span>
     </div>
   );
 }

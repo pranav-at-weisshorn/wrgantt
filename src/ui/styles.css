@@ -1,66 +1,67 @@
-:root {
-  --bg: #ffffff;
-  --bg-elev: #ffffff;
-  --bg-panel: #f6f7f9;
-  --bg-sunken: #eef0f3;
-  --fg: #1f2329;
-  --fg-muted: #6b7280;
-  --fg-faint: #9aa1ab;
-  --border: #dde1e6;
-  --border-strong: #c5cbd3;
-  --accent: #2563eb;
-  --accent-soft: #dbe7ff;
-  --row-alt: #fafbfc;
-  --row-hover: #f1f4f8;
-  --row-sel: #e3ecff;
-  --weekend: #f1f2f4;
-  --grid-line: #eceef1;
-  --crit: #dc2626;
-  --crit-soft: #fca5a5;
-  --today: #2563eb;
-  --status: #a855f7;
-  --baseline: #9ca3af;
-  --summary: #374151;
-  --link: #6b7280;
-  --link-hover: #2563eb;
-  --danger: #dc2626;
-  --warn: #b45309;
-  --ok: #059669;
-  --shadow: 0 8px 28px rgba(15, 23, 42, 0.18);
-  --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  color-scheme: light;
+/* GT Standard is used from the fonts installed on this computer (no web font is bundled, so
+   no web licence is needed). Other machines fall back to Helvetica / Arial. */
+@font-face {
+  font-family: 'GT Standard';
+  src: local('GT Standard M Regular'), local('GTStandard-MRegular');
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'GT Standard';
+  src: local('GT Standard M Regular Oblique'), local('GTStandard-MRegularOblique');
+  font-weight: 400;
+  font-style: italic;
+}
+@font-face {
+  font-family: 'GT Standard';
+  src: local('GT Standard M Bold'), local('GTStandard-MBold');
+  font-weight: 700;
+  font-style: normal;
 }
 
-:root[data-theme='dark'] {
-  --bg: #16181d;
-  --bg-elev: #1d2027;
-  --bg-panel: #1a1d23;
-  --bg-sunken: #121418;
-  --fg: #e6e8eb;
-  --fg-muted: #9aa3ae;
-  --fg-faint: #6b7380;
-  --border: #2c313a;
-  --border-strong: #3a404b;
-  --accent: #5b8cff;
-  --accent-soft: #1f2d4d;
-  --row-alt: #191c21;
-  --row-hover: #20242c;
-  --row-sel: #233150;
-  --weekend: #1c1f25;
-  --grid-line: #22262d;
-  --crit: #f05252;
-  --crit-soft: #7f2b2b;
-  --today: #5b8cff;
-  --status: #c084fc;
-  --baseline: #6b7280;
-  --summary: #d1d5db;
-  --link: #8b939f;
-  --link-hover: #7aa2ff;
-  --danger: #f05252;
-  --warn: #f59e0b;
-  --ok: #34d399;
-  --shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
-  color-scheme: dark;
+/* Villa Felstead brand palette (Brand Guidelines, section 3). */
+:root {
+  --vf-interior-warmth: #462f28;
+  --vf-sandstone: #d9d0c8;
+  --vf-glacier-white: #ffffff;
+  --vf-dark-wood: #2a211e;
+  --vf-mocca: #8c7067;
+  --vf-sandstone-50: #ece8e3;
+  --vf-sandstone-25: #f6f3f1;
+
+  --bg: var(--vf-glacier-white);
+  --bg-elev: var(--vf-glacier-white);
+  --bg-panel: var(--vf-sandstone-25);
+  --bg-sunken: var(--vf-sandstone-50);
+  --fg: var(--vf-dark-wood);
+  --fg-muted: var(--vf-mocca);
+  --fg-faint: #b5a69c;
+  --border: var(--vf-sandstone);
+  --border-strong: #c3b6ab;
+  --rule: var(--vf-dark-wood);
+  --accent: var(--vf-interior-warmth);
+  --accent-soft: var(--vf-sandstone-50);
+  --row-alt: #fbfaf9;
+  --row-hover: var(--vf-sandstone-25);
+  --row-sel: var(--vf-sandstone-50);
+  --weekend: var(--vf-sandstone-25);
+  --grid-line: #efebe7;
+  /* Functional colour kept outside the brand palette on purpose: the critical path. */
+  --crit: #b3261e;
+  --crit-soft: #e8b4ae;
+  --today: var(--vf-interior-warmth);
+  --status: var(--vf-mocca);
+  --baseline: #c4b8ad;
+  --summary: var(--vf-dark-wood);
+  --link: #a89488;
+  --link-hover: var(--vf-interior-warmth);
+  --danger: #b3261e;
+  --warn: #9c6b1f;
+  --ok: #4f7a4a;
+  --shadow: 0 10px 30px rgba(42, 33, 30, 0.16);
+  --font: 'GT Standard', 'GT Standard M', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --track: 0.08em;
+  color-scheme: light;
 }
 
 * {
@@ -89,6 +90,31 @@ textarea {
   color: inherit;
 }
 
+h1,
+h2,
+h3,
+h4,
+strong,
+b,
+th {
+  font-weight: 400;
+}
+
+/* Small uppercase labels with generous tracking, as used throughout the guidelines. */
+.label-caps,
+.grid-hcell,
+.menu .menu-title,
+.tabs button,
+.modal header h2,
+.side-panel h3,
+.issue-group h4,
+.kpi small,
+.plist th,
+table.simple th {
+  text-transform: uppercase;
+  letter-spacing: var(--track);
+}
+
 button {
   cursor: pointer;
 }
@@ -109,12 +135,12 @@ button {
   height: 28px;
   padding: 0 10px;
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
+  border-radius: 999px;
   background: var(--bg-elev);
   white-space: nowrap;
 }
 .btn:hover:not(:disabled) {
-  background: var(--row-hover);
+  border-color: var(--rule);
 }
 .btn:disabled {
   opacity: 0.45;
@@ -126,8 +152,8 @@ button {
   color: #fff;
 }
 .btn.primary:hover:not(:disabled) {
-  filter: brightness(1.08);
-  background: var(--accent);
+  background: var(--vf-dark-wood);
+  border-color: var(--vf-dark-wood);
 }
 .btn.danger {
   color: var(--danger);
@@ -138,9 +164,9 @@ button {
   justify-content: center;
 }
 .btn.active {
-  background: var(--accent-soft);
+  background: var(--accent);
   border-color: var(--accent);
-  color: var(--accent);
+  color: #fff;
 }
 .btn.ghost {
   border-color: transparent;
@@ -158,7 +184,7 @@ button {
   height: 28px;
   padding: 0 8px;
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
+  border-radius: 2px;
   background: var(--bg);
   min-width: 0;
 }
@@ -170,7 +196,7 @@ button {
 .input:focus,
 .select:focus,
 .textarea:focus {
-  outline: 2px solid var(--accent-soft);
+  outline: 2px solid var(--vf-sandstone);
   border-color: var(--accent);
 }
 
@@ -182,11 +208,11 @@ button {
   margin-left: -1px;
 }
 .seg .btn:first-child {
-  border-radius: 6px 0 0 6px;
+  border-radius: 999px 0 0 999px;
   margin-left: 0;
 }
 .seg .btn:last-child {
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 999px 999px 0;
 }
 
 /* ------------------------------------------------------------------ header & toolbar */
@@ -194,14 +220,26 @@ button {
 .topbar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-panel);
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--bg);
+}
+.wordmark {
+  font-size: 13px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--vf-dark-wood);
+}
+.wordmark-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--rule);
 }
 .topbar h1 {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 400;
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -228,7 +266,7 @@ button {
 .toolbar .sep {
   width: 1px;
   height: 20px;
-  background: var(--border-strong);
+  background: var(--border);
   margin: 0 4px;
 }
 .toolbar .search {
@@ -253,7 +291,7 @@ button {
   min-width: 200px;
   padding: 6px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 4px;
   background: var(--bg-elev);
   box-shadow: var(--shadow);
 }
@@ -269,12 +307,25 @@ button {
   width: 100%;
   padding: 6px 8px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 2px;
   background: transparent;
   text-align: left;
   white-space: nowrap;
 }
-.menu button:hover,
+.menu button:disabled {
+  color: var(--fg-faint);
+  cursor: default;
+}
+.menu button.danger {
+  color: var(--danger);
+}
+.menu .shortcut {
+  margin-left: auto;
+  padding-left: 24px;
+  color: var(--fg-faint);
+  font-size: 11px;
+}
+.menu button:hover:not(:disabled),
 .menu label:hover {
   background: var(--row-hover);
 }
@@ -282,13 +333,20 @@ button {
   padding: 4px 8px;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--track);
   color: var(--fg-muted);
 }
 .menu hr {
   border: 0;
   border-top: 1px solid var(--border);
   margin: 4px 0;
+}
+
+.context-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 150;
 }
 
 /* ------------------------------------------------------------------ main split */
@@ -333,8 +391,8 @@ button {
 .pane-header {
   flex: none;
   overflow: hidden;
-  border-bottom: 1px solid var(--border-strong);
-  background: var(--bg-panel);
+  border-bottom: 1px solid var(--rule);
+  background: var(--bg);
 }
 .pane-body {
   flex: 1;
@@ -367,9 +425,9 @@ button {
   display: flex;
   align-items: flex-end;
   padding: 0 6px 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--fg-muted);
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--fg);
   border-right: 1px solid var(--border);
   white-space: nowrap;
   overflow: hidden;
@@ -395,7 +453,11 @@ button {
   background: var(--row-sel);
 }
 .grid-row.summary {
-  font-weight: 600;
+  color: var(--vf-interior-warmth);
+}
+.grid-row.phase .cell[data-col='name'] .txt {
+  text-transform: uppercase;
+  letter-spacing: var(--track);
 }
 .grid-row.drop-before {
   box-shadow: inset 0 2px 0 var(--accent);
@@ -462,7 +524,7 @@ button {
 }
 .cell.neg {
   color: var(--danger);
-  font-weight: 600;
+  font-weight: 400;
 }
 .cell.crit-name {
   color: var(--crit);
@@ -486,7 +548,7 @@ button {
   z-index: 30;
   max-width: 360px;
   padding: 6px 8px;
-  border-radius: 6px;
+  border-radius: 2px;
   background: var(--danger);
   color: #fff;
   font-size: 12px;
@@ -517,7 +579,7 @@ button {
   fill: var(--fg-muted);
 }
 .tl-header .top text {
-  font-weight: 600;
+  font-weight: 400;
   fill: var(--fg);
 }
 .tl-header line {
@@ -616,7 +678,7 @@ button {
   max-width: 340px;
   padding: 8px 10px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 2px;
   background: var(--bg-elev);
   box-shadow: var(--shadow);
   pointer-events: none;
@@ -655,7 +717,7 @@ button {
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--rule);
 }
 .side-panel h3 {
   margin: 0;
@@ -680,7 +742,7 @@ button {
   border: 0;
   background: transparent;
   padding: 4px 6px;
-  border-radius: 5px;
+  border-radius: 2px;
   font-size: 12px;
 }
 .issue:hover {
@@ -698,7 +760,7 @@ button {
 .kpi div {
   padding: 8px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 2px;
   background: var(--bg-elev);
 }
 .kpi small {
@@ -730,7 +792,7 @@ button {
   position: fixed;
   inset: 0;
   z-index: 100;
-  background: rgba(15, 23, 42, 0.35);
+  background: rgba(42, 33, 30, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -742,7 +804,7 @@ button {
   max-height: calc(100vh - 32px);
   display: flex;
   flex-direction: column;
-  border-radius: 10px;
+  border-radius: 2px;
   background: var(--bg-elev);
   box-shadow: var(--shadow);
   border: 1px solid var(--border);
@@ -754,7 +816,7 @@ button {
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--rule);
 }
 .modal header h2 {
   margin: 0;
@@ -788,7 +850,7 @@ button {
 .tabs button.active {
   border-bottom-color: var(--accent);
   color: var(--fg);
-  font-weight: 600;
+  font-weight: 400;
 }
 .form {
   display: grid;
@@ -829,7 +891,7 @@ table.simple td {
 }
 table.simple th {
   color: var(--fg-muted);
-  font-weight: 600;
+  font-weight: 400;
 }
 table.simple input,
 table.simple select {
@@ -850,7 +912,7 @@ table.simple select {
 }
 .toast {
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: 2px;
   background: var(--fg);
   color: var(--bg);
   box-shadow: var(--shadow);
@@ -868,6 +930,17 @@ table.simple select {
   max-width: 960px;
   margin: 0 auto;
   padding: 24px 16px 48px;
+}
+.plist-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding-bottom: 14px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--rule);
+}
+.plist-brand .wordmark {
+  font-size: 18px;
 }
 .plist h1 {
   font-size: 20px;
@@ -898,7 +971,7 @@ table.simple select {
   background: none;
   padding: 0;
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 400;
   text-align: left;
 }
 .plist .empty {
@@ -906,7 +979,7 @@ table.simple select {
   text-align: center;
   color: var(--fg-muted);
   border: 1px dashed var(--border-strong);
-  border-radius: 10px;
+  border-radius: 2px;
 }
 
 /* ------------------------------------------------------------------ print */
@@ -971,7 +1044,10 @@ table.simple select {
   }
   .print-table th {
     text-align: left;
-    background: #f0f0f0;
+    background: #f6f3f1;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 400;
   }
   .print-table td.gantt,
   .print-table th.gantt {
@@ -982,7 +1058,7 @@ table.simple select {
     width: 100%;
   }
   .print-table tr.summary td {
-    font-weight: 700;
+    color: #462f28;
   }
   * {
     -webkit-print-color-adjust: exact;

@@ -86,7 +86,7 @@ function label(unit: Unit, day: number, tier: 'top' | 'bottom'): string {
     case 'day':
       return `${LETTER[weekday(day)]} ${date.getDate()}`;
     case 'week':
-      return tier === 'top' ? `w/c ${format(date, 'dd MMM yyyy')}` : format(date, 'd MMM');
+      return tier === 'top' ? `Week of ${format(date, 'd MMMM yyyy')}` : format(date, 'd MMM');
     case 'month':
       return tier === 'top' ? format(date, 'MMMM yyyy') : format(date, 'MMM');
     case 'quarter': {

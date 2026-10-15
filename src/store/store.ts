@@ -55,6 +55,19 @@ export interface ScrollRequest {
   nonce: number;
 }
 
+export interface ContextMenuState {
+  taskId: string;
+  x: number;
+  y: number;
+}
+
+/** Ask the grid to open the inline editor on a cell (e.g. after "Insert task"). */
+export interface EditRequest {
+  taskId: string;
+  col: 'name';
+  nonce: number;
+}
+
 export interface CommitResult {
   ok: boolean;
   error?: string;
@@ -80,6 +93,8 @@ interface State {
   prefs: Prefs;
   scrollRequest: ScrollRequest | null;
   printing: { collapsedToPhases: boolean } | null;
+  contextMenu: ContextMenuState | null;
+  editRequest: EditRequest | null;
 
   openProject: (p: Project) => void;
   closeProject: () => void;
@@ -102,6 +117,8 @@ interface State {
   setPrefs: (patch: Partial<Prefs>) => void;
   requestScroll: (r: Omit<ScrollRequest, 'nonce'>) => void;
   setPrinting: (p: State['printing']) => void;
+  openContextMenu: (m: ContextMenuState | null) => void;
+  requestEdit: (taskId: string) => void;
 }
 
 let toastSeq = 0;
@@ -120,6 +137,8 @@ export const useStore = create<State>()(
     prefs: loadPrefs(),
     scrollRequest: null,
     printing: null,
+    contextMenu: null,
+    editRequest: null,
 
     openProject: (p) => {
       // Normalise row numbering on load (imported files may be out of order).
@@ -247,6 +266,9 @@ export const useStore = create<State>()(
     requestScroll: (r) => set({ scrollRequest: { ...r, nonce: Date.now() + Math.random() } }),
 
     setPrinting: (printing) => set({ printing }),
+    openContextMenu: (contextMenu) => set({ contextMenu }),
+    requestEdit: (taskId) =>
+      set({ editRequest: { taskId, col: 'name', nonce: Date.now() + Math.random() } }),
   })),
 );
 

@@ -1,4 +1,5 @@
 import { isValidIso, isoToDay } from './dates';
+import { CONSTRAINT_LABEL, days, lagText } from './labels';
 import type { Outline } from './outline';
 import type { Project, ScheduleResult } from './types';
 
@@ -86,7 +87,7 @@ export function checkHealth(project: Project, schedule: ScheduleResult, outline:
         kind: 'negativeFloat',
         taskId: id,
         severity: 'error',
-        message: `${row(id)} ${t.name}: total float ${c.totalFloat}d`,
+        message: `${row(id)} ${t.name}: total float ${days(c.totalFloat)}`,
       });
     }
     if (c?.constraintViolated) {
@@ -94,7 +95,7 @@ export function checkHealth(project: Project, schedule: ScheduleResult, outline:
         kind: 'constraintConflict',
         taskId: id,
         severity: 'error',
-        message: `${row(id)} ${t.name}: ${t.constraint.type} ${t.constraint.date ?? ''} conflicts with logic`,
+        message: `${row(id)} ${t.name}: “${CONSTRAINT_LABEL[t.constraint.type]} ${t.constraint.date ?? ''}” conflicts with the links`,
       });
     }
     if (
@@ -129,7 +130,7 @@ export function checkHealth(project: Project, schedule: ScheduleResult, outline:
         kind: 'longLag',
         taskId: s.id,
         severity: 'warning',
-        message: `Link ${p.rowId} → ${s.rowId} has a ${d.lag}${d.lagUnit === 'ed' ? 'ed' : 'd'} lag`,
+        message: `Link ${p.rowId} → ${s.rowId} has a lag of ${lagText(d.lag, d.lagUnit)}`,
       });
     }
   }

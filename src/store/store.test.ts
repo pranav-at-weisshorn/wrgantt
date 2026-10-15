@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ProjectBuilder } from '../engine/testkit';
 import { derive } from './derive';
 import { isoToDay } from '../engine';
+import { projectFromTemplate } from '../template/load';
+import { linkTexts } from '../ui/rows';
 import {
   addLink,
   applyProgress,
@@ -9,6 +11,9 @@ import {
   deleteTasks,
   indentTask,
   insertTask,
+  insertTaskAt,
+  canMoveTask,
+  moveTaskBy,
   moveTask,
   outdentTask,
   setDuration,
@@ -178,6 +183,74 @@ describe('progress', () => {
     S().undo();
     expect(P().statusDate).toBe(b.day(0));
     expect(task('A').percentComplete).toBe(0);
+  });
+});
+
+describe('move up / down and insert positions', () => {
+  it('swaps a task with its neighbour and keeps links', () => {
+    expect(canMoveTask(P(), 'A', -1)).toBe(false);
+    expect(moveTaskBy('C', -1).ok).toBe(true);
+    expect([rowOf('A'), rowOf('C'), rowOf('B'), rowOf('D')]).toEqual([1, 2, 3, 4]);
+    // Links follow the tasks, so the schedule is unchanged.
+    expect(P().dependencies).toHaveLength(4);
+    expect(linkTexts(P()).preds.get('D')).toBe('2 Finish-to-Start, 3 Finish-to-Start');
+    S().undo();
+    expect(rowOf('B')).toBe(2);
+    expect(moveTaskBy('D', 1).ok).toBe(false);
+  });
+
+  it('moves a summary together with its subtasks, within its parent', () => {
+    const p = projectFromTemplate('T', '2026-11-02');
+    S().openProject(p);
+    const byKey = (k: string) => P().tasks.find((t) => t.templateKey === k)!;
+    const financing = byKey('P2');
+    expect(financing.rowId).toBe(17);
+    moveTaskBy(financing.id, -1);
+    expect(byKey('P2').rowId).toBe(1);
+    expect(byKey('F01').rowId).toBe(2);
+    expect(byKey('P1').rowId).toBe(10);
+    // A subtask only moves among its siblings.
+    expect(canMoveTask(P(), byKey('A01').id, -1)).toBe(false);
+    moveTaskBy(byKey('A02').id, 1);
+    expect(byKey('A03').rowId).toBe(byKey('A02').rowId - 1);
+    expect(byKey('A02').parentId).toBe(byKey('P1').id);
+  });
+
+  it('inserts below and as a subtask', () => {
+    const below = insertTaskAt('A', 'below')!;
+    expect(rowOf(below)).toBe(2);
+    const sub = insertTaskAt('C', 'inside', { name: 'Sub' })!;
+    expect(task(sub).parentId).toBe('C');
+    expect(derive(P()).outline.isSummary('C')).toBe(true);
+  });
+});
+
+describe('row IDs', () => {
+  it('renumber automatically when a whole parent task in the middle is deleted', () => {
+    const p = projectFromTemplate('T', '2026-11-02');
+    S().openProject(p);
+    const byKey = (k: string) => P().tasks.find((t) => t.templateKey === k)!;
+    // Entitlements (row 26, 11 subtasks) sits in the middle of the schedule.
+    expect(byKey('P3').rowId).toBe(26);
+    expect(byKey('D01').rowId).toBe(39);
+    deleteTasks([byKey('P3').id]);
+    expect(P().tasks).toHaveLength(132 - 12);
+    expect(
+      P()
+        .tasks.map((t) => t.rowId)
+        .sort((a, b) => a - b),
+    ).toEqual(Array.from({ length: 120 }, (_, i) => i + 1));
+    // Everything after it moved up by 12, and predecessor texts show the new IDs.
+    expect(byKey('D01').rowId).toBe(27);
+    expect(byKey('D02').rowId).toBe(28);
+    expect(linkTexts(P()).preds.get(byKey('D02').id)).toBe('7 Finish-to-Start, 27 Finish-to-Start');
+    // Links to the deleted tasks are gone, not left dangling.
+    const ids = new Set(P().tasks.map((t) => t.id));
+    expect(P().dependencies.every((d) => ids.has(d.predecessorId) && ids.has(d.successorId))).toBe(
+      true,
+    );
+    S().undo();
+    expect(byKey('D01').rowId).toBe(39);
   });
 });
 

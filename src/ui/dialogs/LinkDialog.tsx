@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { DepType, LagUnit } from '../../engine';
+import { DEP_TYPE_HELP, DEP_TYPE_LABEL, type DepType, type LagUnit } from '../../engine';
 import { deleteLink, updateLink } from '../../store/ops';
 import { useStore } from '../../store/store';
 import { Modal } from './Modal';
@@ -68,10 +68,11 @@ export function LinkDialog({ depId }: { depId: string }) {
             value={type}
             onChange={(e) => setType(e.target.value as DepType)}
           >
-            <option value="FS">Finish-to-Start (FS)</option>
-            <option value="SS">Start-to-Start (SS)</option>
-            <option value="FF">Finish-to-Finish (FF)</option>
-            <option value="SF">Start-to-Finish (SF)</option>
+            {(['FS', 'SS', 'FF', 'SF'] as DepType[]).map((t) => (
+              <option key={t} value={t}>
+                {DEP_TYPE_LABEL[t]}: {DEP_TYPE_HELP[t].toLowerCase()}
+              </option>
+            ))}
           </select>
           <label htmlFor="ld-lag">Lag</label>
           <div className="row-inline">
@@ -90,9 +91,9 @@ export function LinkDialog({ depId }: { depId: string }) {
               aria-label="Lag unit"
             >
               <option value="wd">working days</option>
-              <option value="ed">elapsed days</option>
+              <option value="ed">calendar days</option>
             </select>
-            <span className="hint">Negative = lead</span>
+            <span className="hint">A negative lag lets this task overlap the other one</span>
           </div>
         </div>
       </div>

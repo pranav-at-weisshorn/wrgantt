@@ -11,7 +11,7 @@ import type { Filters } from '../store/store';
 
 export const ROW_H = 28;
 export const HEADER_H = 46;
-export const DEFAULT_PHASE_COLOR = '#94a3b8';
+export const DEFAULT_PHASE_COLOR = '#a89488';
 
 export interface Row {
   id: string;
