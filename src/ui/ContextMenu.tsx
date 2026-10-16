@@ -2,11 +2,18 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { statusOf, STATUS_LABEL, TASK_STATUSES, type TaskStatus } from '../engine';
 import { derive } from '../store/derive';
 import {
+  bulkUpdate,
   canMoveTask,
+  canMoveTasks,
   indentTask,
+  indentTasks,
   insertTaskAt,
+  linkInSequence,
   moveTaskBy,
+  moveTasksBy,
   outdentTask,
+  outdentTasks,
+  unlinkTasks,
   setDuration,
   setStatus,
   type InsertPosition,
@@ -34,6 +41,7 @@ export function ContextMenu() {
   const menu = useStore((s) => s.contextMenu);
   const project = useStore((s) => s.project);
   const close = useStore((s) => s.openContextMenu);
+  const selectedIds = useStore((s) => s.selectedIds);
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
 
@@ -74,6 +82,8 @@ export function ContextMenu() {
   if (!task) return null;
   const id = task.id;
   const s = useStore.getState();
+  // A right-click on one of several selected tasks acts on the whole selection.
+  const bulk = selectedIds.length > 1 && selectedIds.includes(id);
   const isSummary = outline.isSummary(id);
   const c = schedule.calc.get(id);
   const siblings = outline.children.get(task.parentId ?? null) ?? [];
@@ -86,6 +96,67 @@ export function ContextMenu() {
       s.requestEdit(nid);
     }
   };
+
+  const n = selectedIds.length;
+  const bulkGroups: Item[][] = [
+    [
+      {
+        label: `Edit ${n} tasks…`,
+        icon: 'settings',
+        run: () => s.setDialog({ kind: 'bulk', taskIds: selectedIds }),
+      },
+    ],
+    TASK_STATUSES.map((value, i) => ({
+      label: STATUS_LABEL[value],
+      heading: i === 0 ? 'Status' : undefined,
+      status: { value, checked: false },
+      run: () => bulkUpdate(selectedIds, { status: value }),
+    })),
+    [
+      {
+        label: 'Link in sequence (Finish-to-Start)',
+        icon: 'link',
+        run: () => linkInSequence(selectedIds),
+      },
+      {
+        label: 'Remove links between them',
+        icon: 'link',
+        run: () => unlinkTasks(selectedIds),
+      },
+    ],
+    [
+      {
+        label: 'Move up',
+        icon: 'up',
+        shortcut: 'Alt+Shift+↑',
+        disabled: !canMoveTasks(project, selectedIds, -1),
+        run: () => moveTasksBy(selectedIds, -1),
+      },
+      {
+        label: 'Move down',
+        icon: 'down',
+        shortcut: 'Alt+Shift+↓',
+        disabled: !canMoveTasks(project, selectedIds, 1),
+        run: () => moveTasksBy(selectedIds, 1),
+      },
+      { label: 'Indent', icon: 'indent', shortcut: 'Tab', run: () => indentTasks(selectedIds) },
+      {
+        label: 'Outdent',
+        icon: 'outdent',
+        shortcut: 'Shift+Tab',
+        run: () => outdentTasks(selectedIds),
+      },
+    ],
+    [
+      {
+        label: `Delete ${n} tasks`,
+        icon: 'trash',
+        shortcut: 'Delete',
+        danger: true,
+        run: () => confirmDeleteTasks(selectedIds),
+      },
+    ],
+  ];
 
   const groups: Item[][] = [
     [
@@ -172,7 +243,7 @@ export function ContextMenu() {
       ref={ref}
       className="menu context-menu"
       role="menu"
-      aria-label={`Options for ${task.name}`}
+      aria-label={bulk ? `Options for ${n} selected tasks` : `Options for ${task.name}`}
       style={{
         transform: `translate(${pos?.x ?? menu.x}px, ${pos?.y ?? menu.y}px)`,
         visibility: pos ? 'visible' : 'hidden',
@@ -180,10 +251,12 @@ export function ContextMenu() {
       onContextMenu={(e) => e.preventDefault()}
       data-testid="context-menu"
     >
-      <div className="menu-title" title={task.name}>
-        {task.rowId} · {task.name.length > 34 ? `${task.name.slice(0, 33)}…` : task.name}
+      <div className="menu-title" title={bulk ? undefined : task.name}>
+        {bulk
+          ? `${n} tasks selected`
+          : `${task.rowId} · ${task.name.length > 34 ? `${task.name.slice(0, 33)}…` : task.name}`}
       </div>
-      {groups.map((g, gi) => (
+      {(bulk ? bulkGroups : groups).map((g, gi) => (
         <div key={gi}>
           {gi > 0 && <hr />}
           {g.map((it) => (

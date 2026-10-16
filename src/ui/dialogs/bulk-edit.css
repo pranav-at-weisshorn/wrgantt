@@ -1,0 +1,13 @@
+.bulk-note {
+  margin: 0 0 12px;
+}
+.bulk-form {
+  grid-template-columns: 130px 1fr;
+}
+.bulk-form .num {
+  width: 150px;
+}
+.bulk-form .textarea {
+  width: 100%;
+  box-sizing: border-box;
+}

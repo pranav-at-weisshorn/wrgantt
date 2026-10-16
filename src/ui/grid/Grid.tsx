@@ -1,6 +1,7 @@
 import {
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
@@ -18,10 +19,12 @@ import {
 import type { Derived } from '../../store/derive';
 import {
   indentTask,
+  indentTasks,
   insertTask,
   moveTask,
-  moveTaskBy,
+  moveTasksBy,
   outdentTask,
+  outdentTasks,
   quoted,
   renameTask,
   setDuration,
@@ -40,6 +43,7 @@ import { Icon } from '../icons';
 import { HEADER_H, ROW_H, type Row } from '../rows';
 import { confirmDeleteTasks } from '../actions';
 import { SignalChip, StatusChip } from '../StatusChip';
+import './grid-selection.css';
 
 interface Props {
   project: Project;
@@ -72,7 +76,11 @@ interface RowDrag {
 export function Grid(props: Props) {
   const { project, rows, rowIndex, columns, width, first, last, bodyRef, onBodyScroll } = props;
   const selectedId = useStore((s) => s.selectedId);
+  const selectedIds = useStore((s) => s.selectedIds);
   const select = useStore((s) => s.select);
+  const toggleSelect = useStore((s) => s.toggleSelect);
+  const selectRange = useStore((s) => s.selectRange);
+  const setSelection = useStore((s) => s.setSelection);
   const toggleCollapsed = useStore((s) => s.toggleCollapsed);
   const showCritical = useStore((s) => s.prefs.showCritical);
   const setDialog = useStore((s) => s.setDialog);
@@ -87,6 +95,8 @@ export function Grid(props: Props) {
   const selectByKey = useRef(false);
   const dragRef = useRef<RowDrag | null>(null);
   dragRef.current = rowDrag;
+
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
   const ctx: ColumnCtx = { project, baseline: activeBaseline(project) };
   const totalW = columns.reduce((s, c) => s + c.width, 0);
@@ -159,7 +169,8 @@ export function Grid(props: Props) {
 
   const openMenuFor = (row: Row, x: number, y: number) => {
     if (editing && !commitEdit()) return;
-    select(row.id);
+    // Right-clicking a selected row keeps the selection (the menu then acts on all of it).
+    if (!selectedSet.has(row.id)) select(row.id);
     openContextMenu({ taskId: row.id, x, y });
   };
 
@@ -180,11 +191,24 @@ export function Grid(props: Props) {
     ensureVisible(next);
   };
 
+  /** Move the focus one row and extend the selection from the anchor to it (Shift+arrows). */
+  const extendSelection = (delta: number) => {
+    if (!rows.length) return;
+    const cur = selectedId ? (rowIndex.get(selectedId) ?? -1) : -1;
+    const next = Math.max(0, Math.min(rows.length - 1, cur + delta));
+    selectRange(
+      rows[next].id,
+      rows.map((r) => r.id),
+    );
+    ensureVisible(next);
+  };
+
   const canEdit = (col: ColumnDef, row: Row) => !!col.edit && !(col.leafOnly && row.isSummary);
 
   const startEdit = (row: Row, col: ColumnDef, initial?: string) => {
     if (!canEdit(col, row)) return;
-    select(row.id);
+    // Editing one cell leaves a multi-selection as it is.
+    if (row.id !== selectedId) select(row.id);
     setActiveCol(col.key);
     let value = initial ?? editValue(col, row, ctx);
     if (col.edit === 'status' && initial !== undefined) {
@@ -309,7 +333,25 @@ export function Grid(props: Props) {
     if (row && e.altKey && e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       e.preventDefault();
       keepVisible.current = row.id;
-      moveTaskBy(row.id, e.key === 'ArrowUp' ? -1 : 1);
+      moveTasksBy(selectedIds.length > 1 ? selectedIds : [row.id], e.key === 'ArrowUp' ? -1 : 1);
+      return;
+    }
+    if (mod && !e.altKey && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      setSelection(
+        rows.map((r) => r.id),
+        selectedId ?? undefined,
+      );
+      return;
+    }
+    if (e.shiftKey && !mod && !e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault();
+      extendSelection(e.key === 'ArrowUp' ? -1 : 1);
+      return;
+    }
+    if (e.key === 'Escape' && selectedIds.length > 1) {
+      e.preventDefault();
+      select(selectedId);
       return;
     }
     if (row && (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10'))) {
@@ -350,7 +392,10 @@ export function Grid(props: Props) {
       }
       case 'Tab':
         e.preventDefault();
-        if (row) (e.shiftKey ? outdentTask : indentTask)(row.id);
+        if (row)
+          (e.shiftKey ? outdentTasks : indentTasks)(
+            selectedIds.length > 1 ? selectedIds : [row.id],
+          );
         return;
       case 'Insert':
         e.preventDefault();
@@ -358,7 +403,7 @@ export function Grid(props: Props) {
         return;
       case 'Delete':
         e.preventDefault();
-        if (row) confirmDeleteTasks([row.id]);
+        if (row) confirmDeleteTasks(selectedIds.length > 1 ? selectedIds : [row.id]);
         return;
     }
     if (!mod && !e.altKey && e.key.length === 1 && row) {
@@ -463,15 +508,21 @@ export function Grid(props: Props) {
         style={{ width: col.width }}
         data-col={col.key}
         onPointerDown={(e) => {
-          if (col.key === 'id' && e.button === 0) {
+          if (col.key === 'id' && e.button === 0 && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
             setRowDrag({ id: row.id, startY: e.clientY, active: false });
           }
         }}
-        onClick={() => {
+        onClick={(e) => {
           if (editing && !(editing.id === row.id && editing.col === col.key)) {
             if (!commitEdit()) return;
           }
-          select(row.id);
+          if (e.ctrlKey || e.metaKey) toggleSelect(row.id);
+          else if (e.shiftKey) {
+            selectRange(
+              row.id,
+              rows.map((r) => r.id),
+            );
+          } else select(row.id);
           if (col.key !== 'indicators' && col.key !== 'id') setActiveCol(col.key);
           focusGrid();
         }}
@@ -572,7 +623,7 @@ export function Grid(props: Props) {
           {rows.slice(first, last + 1).map((row, k) => {
             const idx = first + k;
             const cls = ['grid-row'];
-            if (row.id === selectedId) cls.push('selected');
+            if (selectedSet.has(row.id)) cls.push('selected');
             if (row.isSummary) cls.push('summary');
             if (row.isSummary && row.depth === 0) cls.push('phase');
             if (rowDrag?.active && rowDrag.target?.id === row.id && rowDrag.id !== row.id) {

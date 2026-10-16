@@ -1,5 +1,6 @@
 import { useStore } from '../../store/store';
 import { BaselineDialog } from './BaselineDialog';
+import { BulkEditDialog } from './BulkEditDialog';
 import { LinkDialog } from './LinkDialog';
 import { Modal } from './Modal';
 import { ExportDialog } from './ExportDialog';
@@ -22,6 +23,8 @@ export function DialogHost() {
       return <BaselineDialog />;
     case 'progress':
       return <ProgressDialog />;
+    case 'bulk':
+      return <BulkEditDialog taskIds={dialog.taskIds} />;
     case 'print':
       return <ExportDialog />;
     case 'confirm':

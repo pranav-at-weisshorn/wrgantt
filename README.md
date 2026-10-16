@@ -46,6 +46,13 @@ download is needed on Windows. Elsewhere, run `npx playwright install chromium` 
 - **Right-click** any row or bar for its options: edit the task, its predecessors or successors,
   insert a task above/below or a subtask, move up/down, indent/outdent, mark complete, turn into a
   milestone, or delete. (The Menu key or Shift+F10 opens it from the keyboard.)
+- **Select several tasks**: Ctrl+click to add or remove, Shift+click (or Shift+arrow keys) for
+  a range, Ctrl+A for all visible rows, Esc to go back to one. Works on bars too. Then press
+  Delete, use the toolbar (indent, outdent, move, **Edit N tasks…**), or right-click for the
+  bulk menu: set status, link in sequence (Finish-to-Start), remove links between them, move,
+  delete. The bulk edit dialog changes status, % complete, responsible, duration, calendar,
+  constraint, shifts starts by working days and adds to notes; every field defaults to
+  "Leave unchanged". Each bulk action is one undo step.
 - **Move tasks** up or down with the arrow buttons in the toolbar or Alt+Shift+↑ / ↓. A task
   moves with its subtasks and stays within its parent; use indent/outdent or drag the ID cell to
   move it to another phase.

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { STATUS_LABEL, TASK_STATUSES, todayDay } from '../engine';
-import { canMoveTask, indentTask, insertTask, moveTaskBy, outdentTask } from '../store/ops';
+import { canMoveTasks, indentTasks, insertTask, moveTasksBy, outdentTasks } from '../store/ops';
 import { ZOOMS, type ColumnKey } from '../store/prefs';
 import { EMPTY_FILTERS, useDerived, useStore } from '../store/store';
 import { confirmDeleteTasks } from './actions';
@@ -8,6 +8,7 @@ import { COLUMNS } from './columns';
 import { fmtIso } from './format';
 import { Icon } from './icons';
 import { Menu } from './Menu';
+import './toolbar-selection.css';
 import { filtersActive, responsibleParties } from './rows';
 
 const ZOOM_LABEL = { day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter' } as const;
@@ -16,7 +17,9 @@ export function Toolbar() {
   const project = useStore((s) => s.project)!;
   const derived = useDerived()!;
   const s = useStore();
-  const { prefs, filters, selectedId } = s;
+  const { prefs, filters, selectedId, selectedIds } = s;
+  const many = selectedIds.length > 1;
+  const hasSelection = selectedIds.length > 0;
   const parties = useMemo(() => responsibleParties(project), [project]);
   const phases = derived.outline.children.get(null) ?? [];
   const errors = derived.health.filter((h) => h.severity === 'error').length;
@@ -54,33 +57,34 @@ export function Toolbar() {
       </button>
       <button
         className="btn icon"
-        title="Delete task (Delete)"
-        disabled={!selectedId}
-        onClick={() => selectedId && confirmDeleteTasks([selectedId])}
+        title={many ? 'Delete the selected tasks (Delete)' : 'Delete task (Delete)'}
+        disabled={!hasSelection}
+        onClick={() => confirmDeleteTasks(selectedIds)}
+        data-testid="delete-tasks"
       >
         <Icon name="trash" />
       </button>
       <button
         className="btn icon"
         title="Outdent (Shift+Tab)"
-        disabled={!selectedId}
-        onClick={() => selectedId && outdentTask(selectedId)}
+        disabled={!hasSelection}
+        onClick={() => outdentTasks(selectedIds)}
       >
         <Icon name="outdent" />
       </button>
       <button
         className="btn icon"
         title="Indent (Tab)"
-        disabled={!selectedId}
-        onClick={() => selectedId && indentTask(selectedId)}
+        disabled={!hasSelection}
+        onClick={() => indentTasks(selectedIds)}
       >
         <Icon name="indent" />
       </button>
       <button
         className="btn icon"
         title="Move up (Alt+Shift+Up)"
-        disabled={!selectedId || !canMoveTask(project, selectedId, -1)}
-        onClick={() => selectedId && moveTaskBy(selectedId, -1)}
+        disabled={!hasSelection || !canMoveTasks(project, selectedIds, -1)}
+        onClick={() => moveTasksBy(selectedIds, -1)}
         data-testid="move-up"
       >
         <Icon name="up" />
@@ -88,12 +92,34 @@ export function Toolbar() {
       <button
         className="btn icon"
         title="Move down (Alt+Shift+Down)"
-        disabled={!selectedId || !canMoveTask(project, selectedId, 1)}
-        onClick={() => selectedId && moveTaskBy(selectedId, 1)}
+        disabled={!hasSelection || !canMoveTasks(project, selectedIds, 1)}
+        onClick={() => moveTasksBy(selectedIds, 1)}
         data-testid="move-down"
       >
         <Icon name="down" />
       </button>
+      {many && (
+        <>
+          <span className="sel-count" data-testid="selection-count">
+            {selectedIds.length} tasks selected
+          </span>
+          <button
+            className="btn small"
+            title="Clear the selection"
+            onClick={s.clearSelection}
+            data-testid="clear-selection"
+          >
+            Clear
+          </button>
+          <button
+            className="btn small"
+            onClick={() => s.setDialog({ kind: 'bulk', taskIds: selectedIds })}
+            data-testid="bulk-edit"
+          >
+            <Icon name="settings" size={14} /> Edit {selectedIds.length} tasks…
+          </button>
+        </>
+      )}
       <span className="sep" />
       <input
         className="input search"

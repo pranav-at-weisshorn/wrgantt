@@ -64,8 +64,11 @@ function barGeom(baselineOn: boolean) {
 export function Timeline(props: Props) {
   const { project, derived, rows, rowIndex, scale, first, last, bodyRef, onBodyScroll } = props;
   const prefs = useStore((s) => s.prefs);
-  const selectedId = useStore((s) => s.selectedId);
+  const selectedIds = useStore((s) => s.selectedIds);
   const select = useStore((s) => s.select);
+  const toggleSelect = useStore((s) => s.toggleSelect);
+  const selectRange = useStore((s) => s.selectRange);
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const setDialog = useStore((s) => s.setDialog);
   const openContextMenu = useStore((s) => s.openContextMenu);
   const scrollRequest = useStore((s) => s.scrollRequest);
@@ -204,10 +207,32 @@ export function Timeline(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drag !== null]);
 
+  /**
+   * Ctrl/Cmd+click toggles a task in the selection and Shift+click selects a range of rows.
+   * Returns true when the press was such a click (it never starts a drag).
+   */
+  const pickWithModifier = (e: React.PointerEvent, row: Row): boolean => {
+    if (e.ctrlKey || e.metaKey) toggleSelect(row.id);
+    else if (e.shiftKey) {
+      selectRange(
+        row.id,
+        rows.map((r) => r.id),
+      );
+    } else return false;
+    return true;
+  };
+
+  /** A press on a summary bar (it cannot be dragged): select it. */
+  const pressSummary = (e: React.PointerEvent, row: Row) => {
+    if (e.button !== 0) return;
+    if (!pickWithModifier(e, row)) select(row.id);
+  };
+
   const startDrag = (e: React.PointerEvent, row: Row, kind: 'move' | 'resize' | 'link') => {
     if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
+    if (pickWithModifier(e, row)) return;
     select(row.id);
     if (kind === 'link') {
       const el = bodyRef.current!;
@@ -373,7 +398,8 @@ export function Timeline(props: Props) {
             if (!row) return;
             e.preventDefault();
             setHover(null);
-            select(row.id);
+            // Right-clicking a selected row keeps the selection.
+            if (!selectedSet.has(row.id)) select(row.id);
             openContextMenu({ taskId: row.id, x: e.clientX, y: e.clientY });
           }}
         >
@@ -423,14 +449,18 @@ export function Timeline(props: Props) {
               y2={height}
             />
           ))}
-          {selectedId && rowIndex.has(selectedId) && (
-            <rect
-              className="row-sel"
-              x={0}
-              y={rowIndex.get(selectedId)! * ROW_H}
-              width={scale.width}
-              height={ROW_H}
-            />
+          {visibleRows.map(
+            (row, k) =>
+              selectedSet.has(row.id) && (
+                <rect
+                  key={row.id}
+                  className="row-sel"
+                  x={0}
+                  y={(first + k) * ROW_H}
+                  width={scale.width}
+                  height={ROW_H}
+                />
+              ),
           )}
           <g>
             {links.map((l) => (
@@ -451,11 +481,12 @@ export function Timeline(props: Props) {
               scale={scale}
               g={g}
               baseline={showBl ? baseline?.tasks[row.id] : undefined}
-              selected={row.id === selectedId}
+              selected={selectedSet.has(row.id)}
               crit={prefs.showCritical && !!row.calc?.critical}
               critStyle={prefs.criticalStyle}
               showLabel={prefs.showLabels}
               onPointerDown={startDrag}
+              onPressSummary={pressSummary}
               onDoubleClick={(id) => setDialog({ kind: 'task', taskId: id })}
               onHover={setHover}
             />
@@ -551,6 +582,7 @@ interface BarRowProps {
   critStyle: 'fill' | 'outline';
   showLabel: boolean;
   onPointerDown: (e: React.PointerEvent, row: Row, kind: 'move' | 'resize' | 'link') => void;
+  onPressSummary: (e: React.PointerEvent, row: Row) => void;
   onDoubleClick: (id: string) => void;
   onHover: (h: Hover | null) => void;
 }
@@ -610,7 +642,10 @@ const BarRow = memo(function BarRow(p: BarRowProps) {
         className={`bar-group${p.selected ? ' selected' : ''}`}
         data-id={row.id}
         {...hoverProps}
-        onPointerDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          p.onPressSummary(e, row);
+        }}
       >
         {blEl}
         <path className="bar summary bar-outline" d={d} fill="var(--summary)" />

@@ -1,0 +1,5 @@
+.toolbar .sel-count {
+  margin: 0 4px 0 8px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}

@@ -58,6 +58,7 @@ export type DialogState =
   | { kind: 'baselines' }
   | { kind: 'progress' }
   | { kind: 'print' }
+  | { kind: 'bulk'; taskIds: string[] }
   | {
       kind: 'confirm';
       title: string;
@@ -110,7 +111,12 @@ interface State {
   past: HistoryEntry[];
   /** Undone changes; the next one to redo is last. */
   future: HistoryEntry[];
+  /** The focused task (keyboard cursor); always part of `selectedIds` when set. */
   selectedId: string | null;
+  /** All selected tasks, in the order they were selected (a range is in outline order). */
+  selectedIds: string[];
+  /** Where a Shift+click or Shift+arrow range starts. */
+  selectionAnchor: string | null;
   collapsed: Record<string, boolean>;
   filters: Filters;
   dialog: DialogState;
@@ -140,7 +146,15 @@ interface State {
   jumpTo: (index: number) => void;
   /** Forget all undo and redo steps (the project itself is not changed). */
   clearHistory: () => void;
+  /** Select one task (or none). */
   select: (id: string | null, scroll?: boolean) => void;
+  /** Add the task to the selection, or remove it if it is already selected. */
+  toggleSelect: (id: string) => void;
+  /** Select everything from the anchor to `toId` in the given (visible) order. */
+  selectRange: (toId: string, orderedVisibleIds: string[]) => void;
+  /** Replace the selection. The anchor (default: the last id) becomes the focused task. */
+  setSelection: (ids: string[], anchor?: string | null) => void;
+  clearSelection: () => void;
   toggleCollapsed: (id: string) => void;
   collapseToPhases: () => void;
   expandAll: () => void;
@@ -165,6 +179,8 @@ export const useStore = create<State>()(
     past: [],
     future: [],
     selectedId: null,
+    selectedIds: [],
+    selectionAnchor: null,
     collapsed: {},
     filters: EMPTY_FILTERS,
     dialog: null,
@@ -187,6 +203,8 @@ export const useStore = create<State>()(
         past: [],
         future: [],
         selectedId: null,
+        selectedIds: [],
+        selectionAnchor: null,
         collapsed: {},
         filters: EMPTY_FILTERS,
         dialog: null,
@@ -199,7 +217,15 @@ export const useStore = create<State>()(
       void flushHistorySave();
       historyLoadedFor = null;
       historySeq++;
-      set({ project: null, past: [], future: [], selectedId: null, dialog: null });
+      set({
+        project: null,
+        past: [],
+        future: [],
+        selectedId: null,
+        selectedIds: [],
+        selectionAnchor: null,
+        dialog: null,
+      });
     },
 
     commit: (label, recipe, opts = {}) => {
@@ -265,9 +291,46 @@ export const useStore = create<State>()(
     },
 
     select: (id, scroll) => {
-      set({ selectedId: id });
+      set({ selectedId: id, selectedIds: id ? [id] : [], selectionAnchor: id });
       if (id && scroll) get().requestScroll({ taskId: id });
     },
+
+    toggleSelect: (id) => {
+      const { selectedIds, selectedId } = get();
+      if (!selectedIds.includes(id)) {
+        set({ selectedIds: [...selectedIds, id], selectedId: id, selectionAnchor: id });
+        return;
+      }
+      const rest = selectedIds.filter((x) => x !== id);
+      // Removing the focused task moves the focus to the last remaining one.
+      const focus = id === selectedId ? (rest[rest.length - 1] ?? null) : selectedId;
+      set({ selectedIds: rest, selectedId: focus, selectionAnchor: focus });
+    },
+
+    selectRange: (toId, ordered) => {
+      const { selectionAnchor, selectedId } = get();
+      const from = ordered.indexOf(selectionAnchor ?? selectedId ?? toId);
+      const to = ordered.indexOf(toId);
+      if (to < 0) return;
+      if (from < 0) {
+        get().select(toId);
+        return;
+      }
+      const ids = ordered.slice(Math.min(from, to), Math.max(from, to) + 1);
+      set({ selectedIds: ids, selectedId: toId, selectionAnchor: ordered[from] });
+    },
+
+    setSelection: (ids, anchor) => {
+      const unique = [...new Set(ids)];
+      if (!unique.length) {
+        set({ selectedIds: [], selectedId: null, selectionAnchor: null });
+        return;
+      }
+      const focus = anchor && unique.includes(anchor) ? anchor : unique[unique.length - 1];
+      set({ selectedIds: unique, selectedId: focus, selectionAnchor: focus });
+    },
+
+    clearSelection: () => set({ selectedIds: [], selectedId: null, selectionAnchor: null }),
 
     toggleCollapsed: (id) =>
       set((s) => {
@@ -325,6 +388,24 @@ export const useStore = create<State>()(
       set({ editRequest: { taskId, col: 'name', nonce: Date.now() + Math.random() } }),
   })),
 );
+
+// ------------------------------------------------------------------ selection
+
+/** Drop selected tasks that no longer exist (deleted, or removed by undo). */
+useStore.subscribe((s, prev) => {
+  if (s.project === prev.project || !s.project) return;
+  const ids = new Set(s.project.tasks.map((t) => t.id));
+  if (s.selectedIds.every((id) => ids.has(id)) && (!s.selectedId || ids.has(s.selectedId))) return;
+  const keep = s.selectedIds.filter((id) => ids.has(id));
+  const focus =
+    s.selectedId && ids.has(s.selectedId) ? s.selectedId : (keep[keep.length - 1] ?? null);
+  const anchor = s.selectionAnchor && ids.has(s.selectionAnchor) ? s.selectionAnchor : focus;
+  useStore.setState({
+    selectedIds: focus && !keep.includes(focus) ? [...keep, focus] : keep,
+    selectedId: focus,
+    selectionAnchor: anchor,
+  });
+});
 
 // ------------------------------------------------------------------ history persistence
 

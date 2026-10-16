@@ -2,7 +2,7 @@
  * Project edit operations. Every operation goes through `commit`, which validates (cycles),
  * recalculates and records an undo step.
  */
-import type { Draft } from 'immer';
+import { produce, type Draft } from 'immer';
 import {
   CONSTRAINT_LABEL,
   dayToIso,
@@ -12,6 +12,7 @@ import {
   isoToDay,
   makeBaseline,
   newId,
+  renumber,
   resolvePredecessorText,
   STATUS_LABEL,
   type Calendar,
@@ -19,9 +20,11 @@ import {
   type Dependency,
   type Project,
   type Task,
+  type TaskCalc,
   type TaskStatus,
 } from '../engine';
 import { blankTask } from '../template/load';
+import { calFor } from '../ui/cal';
 import { fmtIso } from '../ui/format';
 import { derive } from './derive';
 import { useStore, type CommitResult } from './store';
@@ -130,10 +133,26 @@ export function normaliseStatus(t: Draft<Task>) {
 }
 
 /**
- * Set % complete. Actual dates are filled from the current schedule (clamped to the status
- * date) the way MS Project does when progress is entered. On hold and Blocked are kept unless
- * the task reaches 100 %.
+ * Write % complete onto a task. Actual dates are filled from the current schedule (clamped to
+ * the status date) the way MS Project does when progress is entered. On hold and Blocked are
+ * kept unless the task reaches 100 %.
  */
+function applyPercent(t: Draft<Task>, value: number, c: TaskCalc | undefined) {
+  t.percentComplete = value;
+  if (value === 0) {
+    delete t.actualStart;
+    delete t.actualFinish;
+    normaliseStatus(t);
+    return;
+  }
+  if (!t.actualStart && c) t.actualStart = dayToIso(c.es);
+  if (value === 100) {
+    if (!t.actualFinish && c) t.actualFinish = dayToIso(displayFinishDay(c));
+  } else delete t.actualFinish;
+  normaliseStatus(t);
+}
+
+/** Set % complete as one undoable step (see `applyPercent`). */
 export function setPercentComplete(id: string, pct: number) {
   const p = st().project;
   if (!p) return { ok: false };
@@ -141,19 +160,7 @@ export function setPercentComplete(id: string, pct: number) {
   const c = schedule.calc.get(id);
   const value = Math.max(0, Math.min(100, Math.round(pct)));
   return st().commit(`Progress of ${nameOf(id)}: ${value}%`, (d) => {
-    const t = findTask(d, id);
-    t.percentComplete = value;
-    if (value === 0) {
-      delete t.actualStart;
-      delete t.actualFinish;
-      normaliseStatus(t);
-      return;
-    }
-    if (!t.actualStart && c) t.actualStart = dayToIso(c.es);
-    if (value === 100) {
-      if (!t.actualFinish && c) t.actualFinish = dayToIso(displayFinishDay(c));
-    } else delete t.actualFinish;
-    normaliseStatus(t);
+    applyPercent(findTask(d, id), value, c);
   });
 }
 
@@ -338,18 +345,25 @@ export function moveTaskBy(id: string, dir: -1 | 1): CommitResult {
   );
 }
 
+/** Delete tasks and their subtasks (and every link to them) as one undoable step. */
 export function deleteTasks(ids: string[]) {
   const p = st().project;
-  let label = 'Deleted tasks';
-  if (p && ids.length === 1) {
-    const subs = descendantIds(p, ids[0]).size - 1;
-    label = `Deleted ${nameOf(ids[0])}${subs ? ` and ${subs} subtask${subs === 1 ? '' : 's'}` : ''}`;
-  } else if (ids.length > 1) label = `Deleted ${ids.length} tasks`;
+  if (!p) return { ok: false };
+  const chosen = inOutlineOrder(p, ids);
+  if (!chosen.length) return { ok: false };
+  const roots = selectionRoots(p, chosen);
+  const doomedCount = new Set(roots.flatMap((id) => [...descendantIds(p, id)])).size;
+  const subs = doomedCount - roots.length;
+  const subText = subs ? ` and ${subs} subtask${subs === 1 ? '' : 's'}` : '';
+  const label =
+    roots.length === 1
+      ? `Deleted ${nameOf(roots[0])}${subText}`
+      : `Deleted ${roots.length} tasks${subText}`;
   return st().commit(
     label,
     (d) => {
       const doomed = new Set<string>();
-      for (const id of ids) for (const x of descendantIds(d, id)) doomed.add(x);
+      for (const id of roots) for (const x of descendantIds(d, id)) doomed.add(x);
       d.tasks = d.tasks.filter((t) => !doomed.has(t.id));
       d.dependencies = d.dependencies.filter(
         (x) => !doomed.has(x.predecessorId) && !doomed.has(x.successorId),
@@ -360,49 +374,185 @@ export function deleteTasks(ids: string[]) {
   );
 }
 
+/** Make the task a child of its previous sibling. Returns false when it has none. */
+function indentInDraft(d: Draft<Project>, id: string): boolean {
+  const t = findTask(d, id);
+  const sibs = siblingsOf(d, t.parentId);
+  const i = sibs.findIndex((s) => s.id === id);
+  if (i <= 0) return false;
+  const newParent = sibs[i - 1];
+  const kids = siblingsOf(d, newParent.id);
+  t.parentId = newParent.id;
+  t.order = kids.length ? kids[kids.length - 1].order + 1 : 0;
+  // A task that becomes a summary keeps its links but no longer has its own constraint.
+  newParent.constraint = { type: 'ASAP' };
+  return true;
+}
+
+/**
+ * Move the task up one level, keeping its place in the outline (later siblings become its
+ * children). Returns false for a top-level task.
+ */
+function outdentInDraft(d: Draft<Project>, id: string): boolean {
+  const t = findTask(d, id);
+  if (!t.parentId) return false;
+  const parent = findTask(d, t.parentId);
+  const sibs = siblingsOf(d, t.parentId);
+  const i = sibs.findIndex((s) => s.id === id);
+  const later = sibs.slice(i + 1);
+  const ownKids = siblingsOf(d, t.id);
+  let o = ownKids.length ? ownKids[ownKids.length - 1].order + 1 : 0;
+  for (const s of later) {
+    s.parentId = t.id;
+    s.order = o++;
+  }
+  if (later.length) t.constraint = { type: 'ASAP' };
+  t.parentId = parent.parentId;
+  t.order = parent.order + 0.5;
+  return true;
+}
+
 /** Make the task a child of its previous sibling. */
 export function indentTask(id: string) {
+  return st().commit(`Indented ${nameOf(id)}`, (d) => void indentInDraft(d, id), {
+    structural: true,
+  });
+}
+
+/** Move the task up one level, keeping its place in the outline (later siblings become its children). */
+export function outdentTask(id: string) {
+  return st().commit(`Outdented ${nameOf(id)}`, (d) => void outdentInDraft(d, id), {
+    structural: true,
+  });
+}
+
+// ------------------------------------------------------------------ selections
+
+/** Distinct existing task ids, in outline order. */
+export function inOutlineOrder(project: Project, ids: Iterable<string>): string[] {
+  const want = new Set(ids);
+  return derive(project).outline.flat.filter((id) => want.has(id));
+}
+
+/** The chosen tasks that are not inside another chosen task (their subtasks move with them). */
+export function selectionRoots(project: Project, ids: Iterable<string>): string[] {
+  const { outline } = derive(project);
+  const chosen = new Set(ids);
+  return inOutlineOrder(project, chosen).filter(
+    (id) => !outline.ancestorsOf(id).some((a) => chosen.has(a)),
+  );
+}
+
+/**
+ * Plan moving the roots one place up (-1) or down (+1) among their siblings. Adjacent chosen
+ * siblings move as a block; chosen tasks that are already at the end of their parent stay put.
+ * Returns the new sibling order of every parent that changes, and the chosen tasks that move.
+ */
+function planMoves(project: Project, roots: string[], dir: -1 | 1) {
+  const chosen = new Set(roots);
+  const orders = new Map<string | null, string[]>();
+  const moved: string[] = [];
+  const parents = new Set(
+    roots.map((id) => project.tasks.find((t) => t.id === id)?.parentId ?? null),
+  );
+  for (const parent of parents) {
+    const before = project.tasks
+      .filter((t) => (t.parentId ?? null) === parent)
+      .sort((a, b) => a.order - b.order)
+      .map((t) => t.id);
+    const after = [...before];
+    if (dir < 0) {
+      for (let i = 1; i < after.length; i++) {
+        if (chosen.has(after[i]) && !chosen.has(after[i - 1])) {
+          [after[i - 1], after[i]] = [after[i], after[i - 1]];
+        }
+      }
+    } else {
+      for (let i = after.length - 2; i >= 0; i--) {
+        if (chosen.has(after[i]) && !chosen.has(after[i + 1])) {
+          [after[i + 1], after[i]] = [after[i], after[i + 1]];
+        }
+      }
+    }
+    if (after.some((id, i) => id !== before[i])) {
+      orders.set(parent, after);
+      for (const id of after)
+        if (chosen.has(id) && before.indexOf(id) !== after.indexOf(id)) moved.push(id);
+    }
+  }
+  return { orders, moved };
+}
+
+/** Whether at least one of the tasks can move one place up (-1) or down (+1). */
+export function canMoveTasks(project: Project, ids: string[], dir: -1 | 1): boolean {
+  return planMoves(project, selectionRoots(project, ids), dir).orders.size > 0;
+}
+
+/** Move several tasks (with their subtasks) one place up or down, as one undoable step. */
+export function moveTasksBy(ids: string[], dir: -1 | 1): CommitResult {
+  const p = st().project;
+  if (!p) return { ok: false };
+  const { orders, moved } = planMoves(p, selectionRoots(p, ids), dir);
+  if (!moved.length) return { ok: false };
+  if (moved.length === 1) return moveTaskBy(moved[0], dir);
   return st().commit(
-    `Indented ${nameOf(id)}`,
+    `Moved ${moved.length} tasks ${dir < 0 ? 'up' : 'down'}`,
     (d) => {
-      const t = findTask(d, id);
-      const sibs = siblingsOf(d, t.parentId);
-      const i = sibs.findIndex((s) => s.id === id);
-      if (i <= 0) return;
-      const newParent = sibs[i - 1];
-      const kids = siblingsOf(d, newParent.id);
-      t.parentId = newParent.id;
-      t.order = kids.length ? kids[kids.length - 1].order + 1 : 0;
-      // A task that becomes a summary keeps its links but no longer has its own constraint.
-      newParent.constraint = { type: 'ASAP' };
+      for (const order of orders.values()) order.forEach((id, i) => (findTask(d, id).order = i));
     },
     { structural: true },
   );
 }
 
-/** Move the task up one level, keeping its place in the outline (later siblings become its children). */
-export function outdentTask(id: string) {
-  return st().commit(
-    `Outdented ${nameOf(id)}`,
-    (d) => {
-      const t = findTask(d, id);
-      if (!t.parentId) return;
-      const parent = findTask(d, t.parentId);
-      const sibs = siblingsOf(d, t.parentId);
-      const i = sibs.findIndex((s) => s.id === id);
-      const later = sibs.slice(i + 1);
-      const ownKids = siblingsOf(d, t.id);
-      let o = ownKids.length ? ownKids[ownKids.length - 1].order + 1 : 0;
-      for (const s of later) {
-        s.parentId = t.id;
-        s.order = o++;
+/** Apply an indent or outdent step to each root in turn; returns the ones that moved. */
+function applyToRoots(
+  project: Project,
+  roots: string[],
+  step: (d: Draft<Project>, id: string) => boolean,
+): string[] {
+  const applied: string[] = [];
+  produce(project, (d) => {
+    for (const id of roots) {
+      if (step(d, id)) {
+        applied.push(id);
+        renumber(d.tasks); // keeps sibling orders distinct for the next step
       }
-      if (later.length) t.constraint = { type: 'ASAP' };
-      t.parentId = parent.parentId;
-      t.order = parent.order + 0.5;
+    }
+  });
+  return applied;
+}
+
+function structureSteps(ids: string[], verb: 'Indented' | 'Outdented') {
+  const p = st().project;
+  if (!p) return { ok: false };
+  const step = verb === 'Indented' ? indentInDraft : outdentInDraft;
+  const applied = applyToRoots(p, selectionRoots(p, ids), step);
+  if (!applied.length) return { ok: false };
+  if (applied.length === 1) return (verb === 'Indented' ? indentTask : outdentTask)(applied[0]);
+  return st().commit(
+    `${verb} ${applied.length} tasks`,
+    (d) => {
+      for (const id of applied) {
+        step(d, id);
+        renumber(d.tasks);
+      }
     },
     { structural: true },
   );
+}
+
+/**
+ * Indent several tasks as one undoable step, top to bottom: each becomes the last child of its
+ * previous sibling, so a block of adjacent siblings moves together. Tasks without a previous
+ * sibling are skipped.
+ */
+export function indentTasks(ids: string[]) {
+  return structureSteps(ids, 'Indented');
+}
+
+/** Outdent several tasks as one undoable step, top to bottom; top-level tasks are skipped. */
+export function outdentTasks(ids: string[]) {
+  return structureSteps(ids, 'Outdented');
 }
 
 /** Drag-and-drop move: place `id` before/after `targetId`, or inside it as the last child. */
@@ -479,6 +629,200 @@ export function replaceTaskLinks(taskId: string, links: Dependency[]) {
       ...(links as Draft<Dependency>[]),
     ];
   });
+}
+
+/**
+ * Link the selected work tasks Finish-to-Start in outline order (A to B, B to C, …), skipping
+ * pairs that are already linked. One undoable step; refused as a whole if it makes a cycle.
+ */
+export function linkInSequence(ids: string[]): CommitResult {
+  const p = st().project;
+  if (!p) return { ok: false, error: 'No project open' };
+  const { outline } = derive(p);
+  const tasks = inOutlineOrder(p, ids).filter((id) => !outline.isSummary(id));
+  if (tasks.length < 2) {
+    const error = 'Select at least two work tasks to link';
+    st().toast(error, 'error');
+    return { ok: false, error };
+  }
+  const linked = new Set(p.dependencies.map((x) => `${x.predecessorId}>${x.successorId}`));
+  const pairs: [string, string][] = [];
+  for (let i = 1; i < tasks.length; i++) {
+    if (!linked.has(`${tasks[i - 1]}>${tasks[i]}`)) pairs.push([tasks[i - 1], tasks[i]]);
+  }
+  if (!pairs.length) {
+    st().toast('These tasks are already linked in sequence', 'info');
+    return { ok: false };
+  }
+  return st().commit(`Linked ${tasks.length} tasks in sequence`, (d) => {
+    for (const [predecessorId, successorId] of pairs) {
+      d.dependencies.push({
+        id: newId(),
+        predecessorId,
+        successorId,
+        type: 'FS',
+        lag: 0,
+        lagUnit: 'wd',
+      });
+    }
+  });
+}
+
+/** Remove every link whose two ends are both in the selection, as one undoable step. */
+export function unlinkTasks(ids: string[]): CommitResult {
+  const p = st().project;
+  if (!p) return { ok: false, error: 'No project open' };
+  const chosen = new Set(ids);
+  const count = p.dependencies.filter(
+    (x) => chosen.has(x.predecessorId) && chosen.has(x.successorId),
+  ).length;
+  if (!count) {
+    st().toast('There are no links between the selected tasks', 'info');
+    return { ok: false };
+  }
+  return st().commit(
+    `Removed ${count} link${count === 1 ? '' : 's'} between ${chosen.size} tasks`,
+    (d) => {
+      d.dependencies = d.dependencies.filter(
+        (x) => !(chosen.has(x.predecessorId) && chosen.has(x.successorId)),
+      );
+    },
+  );
+}
+
+// ------------------------------------------------------------------ bulk edit
+
+/** Properties to set on many tasks at once. Every field is optional (omitted = unchanged). */
+export interface BulkChanges {
+  status?: TaskStatus;
+  percentComplete?: number;
+  responsible?: string;
+  /** Working days; 0 makes the tasks milestones. */
+  duration?: number;
+  calendarId?: string;
+  /** A constraint of type ASAP removes the constraint. */
+  constraint?: Constraint;
+  /** Move the start by this many working days (+ later, - earlier) with a Start no earlier than constraint. */
+  shiftStartBy?: number;
+  /** Text added on a new line at the end of each task's notes. */
+  appendNotes?: string;
+}
+
+/**
+ * What a bulk edit touches: `all` are the selected tasks (responsible and notes apply to
+ * these), `work` the work tasks among them plus the work tasks inside selected summaries
+ * (everything else applies to these), `summaries` the selected summary tasks.
+ */
+export function bulkTargets(project: Project, ids: Iterable<string>) {
+  const { outline } = derive(project);
+  const all = inOutlineOrder(project, ids);
+  const summaries = all.filter((id) => outline.isSummary(id));
+  const work = inOutlineOrder(
+    project,
+    all.flatMap((id) => (outline.isSummary(id) ? outline.leavesOf(id) : [id])),
+  );
+  return { all, summaries, work };
+}
+
+/**
+ * Edit several tasks as one undoable step. Duration, calendar, constraint, progress, status and
+ * the start shift apply to work tasks only (a selected summary stands for its work tasks);
+ * responsible and notes apply to every selected task. Progress is applied before status, and a
+ * start shift replaces any constraint given in the same edit.
+ */
+export function bulkUpdate(
+  ids: string[],
+  changes: BulkChanges,
+  opts: { quiet?: boolean } = {},
+): CommitResult {
+  const p = st().project;
+  if (!p) return { ok: false, error: 'No project open' };
+  const fail = (error: string): CommitResult => {
+    if (!opts.quiet) st().toast(error, 'error');
+    return { ok: false, error };
+  };
+  const { all, work } = bulkTargets(p, ids);
+  if (!all.length) return fail('No tasks selected');
+
+  const { status, constraint } = changes;
+  const pct =
+    changes.percentComplete === undefined
+      ? undefined
+      : Math.max(0, Math.min(100, Math.round(changes.percentComplete)));
+  const duration =
+    changes.duration === undefined ? undefined : Math.max(0, Math.round(changes.duration));
+  const shift = Math.round(changes.shiftStartBy ?? 0);
+  const responsible = changes.responsible?.trim();
+  const note = changes.appendNotes?.trim();
+  if (pct !== undefined && !Number.isFinite(pct)) return fail('% complete must be a number');
+  if (duration !== undefined && !Number.isFinite(duration)) {
+    return fail('Duration must be a number of working days');
+  }
+  if (!Number.isFinite(shift)) return fail('The start shift must be a number of working days');
+  if (constraint && constraint.type !== 'ASAP' && !constraint.date) {
+    return fail('Choose a date for the constraint');
+  }
+  const calendar = changes.calendarId
+    ? p.calendars.find((c) => c.id === changes.calendarId)
+    : undefined;
+  if (changes.calendarId && !calendar) return fail('That calendar no longer exists');
+
+  const parts: string[] = [];
+  if (status) parts.push(`status ${STATUS_LABEL[status]}`);
+  if (pct !== undefined) parts.push(`${pct}% complete`);
+  if (responsible !== undefined) {
+    parts.push(responsible ? `responsible ${quoted(responsible)}` : 'responsible cleared');
+  }
+  if (duration !== undefined) {
+    parts.push(`duration ${duration === 0 ? 'milestone' : days(duration, 'working day')}`);
+  }
+  if (calendar) parts.push(`calendar ${quoted(calendar.name)}`);
+  if (constraint) {
+    parts.push(
+      constraint.type === 'ASAP'
+        ? 'constraint removed'
+        : `${CONSTRAINT_LABEL[constraint.type].toLowerCase()} ${fmtIso(constraint.date!)}`,
+    );
+  }
+  if (shift) {
+    parts.push(
+      `start moved ${shift > 0 ? 'later' : 'earlier'} by ${days(Math.abs(shift), 'working day')}`,
+    );
+  }
+  if (note) parts.push('notes added');
+  if (!parts.length) return fail('Choose at least one thing to change');
+
+  const { schedule } = derive(p);
+  const who = all.length === 1 ? nameOf(all[0]) : `${all.length} tasks`;
+  return st().commit(
+    `Edited ${who}: ${parts.join(', ')}`,
+    (d) => {
+      for (const id of work) {
+        const t = findTask(d, id);
+        const c = schedule.calc.get(id);
+        if (duration !== undefined) t.duration = duration;
+        if (calendar) t.calendarId = calendar.id;
+        if (pct !== undefined) applyPercent(t, pct, c);
+        if (status) applyStatusFields(t, statusFields(t, status, scheduledDates(p, id)));
+        if (constraint) {
+          t.constraint =
+            constraint.type === 'ASAP'
+              ? { type: 'ASAP' }
+              : { type: constraint.type, date: constraint.date };
+        }
+        if (shift && c) {
+          const cal = calFor(p, t.calendarId);
+          t.constraint = { type: 'SNET', date: dayToIso(cal.shift(cal.snap(c.es), shift)) };
+        }
+      }
+      for (const id of all) {
+        const t = findTask(d, id);
+        if (responsible !== undefined) t.responsible = responsible;
+        if (note) t.notes = t.notes.trim() ? `${t.notes.trimEnd()}\n${note}` : note;
+      }
+    },
+    { quiet: opts.quiet },
+  );
 }
 
 // ------------------------------------------------------------------ project-level

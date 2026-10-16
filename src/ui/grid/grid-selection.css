@@ -1,0 +1,10 @@
+/* Shift+click selects rows, not text. */
+.grid-body .grid-row {
+  user-select: none;
+}
+.grid-body .grid-row .cell-editor {
+  user-select: text;
+}
+.tl-svg {
+  user-select: none;
+}
