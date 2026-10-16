@@ -53,6 +53,14 @@ download is needed on Windows. Elsewhere, run `npx playwright install chromium` 
   delete. The bulk edit dialog changes status, % complete, responsible, duration, calendar,
   constraint, shifts starts by working days and adds to notes; every field defaults to
   "Leave unchanged". Each bulk action is one undo step.
+- **Drag tasks** by their ID, WBS or icon cell. Drag a selection of several tasks the same way:
+  drop on the top or bottom edge of a row to place them above or below it, or on the middle of a
+  row to make them its subtasks. A label shows what will happen; a drop into a task's own
+  subtasks is refused. One undo step.
+- **Worst case**: give a task extra working days in the Worst case column (or the task dialog /
+  bulk edit). The extra time is drawn hatched after the bar and in the tooltip; the plan itself
+  does not move. The top bar shows the worst-case project finish (every task overrunning, with
+  knock-on delays), drawn as a dotted red line on the timeline. Toggle with the Worst case button.
 - **Move tasks** up or down with the arrow buttons in the toolbar or Alt+Shift+↑ / ↓. A task
   moves with its subtasks and stays within its parent; use indent/outdent or drag the ID cell to
   move it to another phase.

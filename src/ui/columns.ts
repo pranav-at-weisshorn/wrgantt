@@ -19,7 +19,15 @@ import { fmtDay, fmtIso, fmtSigned } from './format';
 import { linkTexts, type Row } from './rows';
 
 export type EditKind =
-  'text' | 'duration' | 'date' | 'finishDate' | 'preds' | 'percent' | 'notes' | 'status';
+  | 'text'
+  | 'duration'
+  | 'worstCase'
+  | 'date'
+  | 'finishDate'
+  | 'preds'
+  | 'percent'
+  | 'notes'
+  | 'status';
 
 export interface ColumnDef {
   key: ColumnKey;
@@ -83,6 +91,27 @@ export const COLUMNS: ColumnDef[] = [
     edit: 'duration',
     leafOnly: true,
     text: (r) => (r.calc ? days(r.isSummary ? r.calc.duration : r.task.duration) : ''),
+  },
+  {
+    key: 'worstCase',
+    label: 'Worst case',
+    width: 96,
+    align: 'right',
+    hideable: true,
+    edit: 'worstCase',
+    leafOnly: true,
+    text: (r) =>
+      !r.isSummary && (r.task.worstCaseDays ?? 0) > 0 ? `+${days(r.task.worstCaseDays!)}` : '',
+  },
+  {
+    key: 'worstFinish',
+    label: 'Finish (worst case)',
+    width: 128,
+    hideable: true,
+    text: (r, c) => {
+      const w = derive(c.project).worst?.calc.get(r.id);
+      return w ? fmtDay(displayFinishDay(w)) : '';
+    },
   },
   {
     key: 'start',
@@ -196,6 +225,8 @@ export const COLUMN_BY_KEY = new Map(COLUMNS.map((c) => [c.key, c]));
 /** Initial editor value for a cell (raw rather than formatted where useful). */
 export function editValue(col: ColumnDef, row: Row, ctx: ColumnCtx): string {
   switch (col.edit) {
+    case 'worstCase':
+      return String(row.task.worstCaseDays ?? 0);
     case 'duration':
       return String(row.task.duration);
     case 'percent':

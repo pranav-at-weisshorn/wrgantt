@@ -33,6 +33,7 @@ export function BulkEditDialog({ taskIds }: { taskIds: string[] }) {
     respMode: 'keep' as ResponsibleMode,
     responsible: '',
     duration: '',
+    worstCase: '',
     calendarId: '',
     cType: '' as ConstraintType | '',
     cDate: '',
@@ -67,6 +68,13 @@ export function BulkEditDialog({ taskIds }: { taskIds: string[] }) {
         return setError('Duration must be a number of working days (0 = milestone)');
       }
       changes.duration = d;
+    }
+    if (form.worstCase.trim() !== '') {
+      const w = Number(form.worstCase);
+      if (!Number.isInteger(w) || w < 0) {
+        return setError('Worst-case time must be a whole number of working days (0 removes it)');
+      }
+      changes.worstCaseDays = w;
     }
     if (form.calendarId) changes.calendarId = form.calendarId;
     if (form.cType === 'ASAP') changes.constraint = { type: 'ASAP' };
@@ -191,6 +199,18 @@ export function BulkEditDialog({ taskIds }: { taskIds: string[] }) {
               onChange={(e) => set({ duration: e.target.value })}
             />
             <span className="hint">Working days; 0 = milestone</span>
+          </div>
+
+          <label htmlFor="bk-worst">Worst case</label>
+          <div className="row-inline">
+            <input
+              id="bk-worst"
+              className="input num"
+              placeholder="Leave unchanged"
+              value={form.worstCase}
+              onChange={(e) => set({ worstCase: e.target.value })}
+            />
+            <span className="hint">Extra working days; 0 removes it</span>
           </div>
 
           <label htmlFor="bk-cal">Calendar</label>

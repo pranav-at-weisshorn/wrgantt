@@ -7,6 +7,8 @@ export type ColumnKey =
   | 'wbs'
   | 'name'
   | 'duration'
+  | 'worstCase'
+  | 'worstFinish'
   | 'start'
   | 'finish'
   | 'predecessors'
@@ -27,6 +29,7 @@ export interface Prefs {
   criticalStyle: 'fill' | 'outline';
   showBaseline: boolean;
   showLinks: boolean;
+  showWorstCase: boolean;
   showLabels: boolean;
   columns: Record<ColumnKey, boolean>;
   gridWidth: number;
@@ -38,6 +41,7 @@ export const DEFAULT_PREFS: Prefs = {
   criticalStyle: 'fill',
   showBaseline: true,
   showLinks: true,
+  showWorstCase: true,
   showLabels: true,
   columns: {
     id: true,
@@ -45,6 +49,8 @@ export const DEFAULT_PREFS: Prefs = {
     wbs: true,
     name: true,
     duration: true,
+    worstCase: true,
+    worstFinish: false,
     start: true,
     finish: true,
     predecessors: true,

@@ -280,6 +280,18 @@ export function Toolbar() {
         <Icon name="link" size={14} /> Links
       </button>
       <button
+        className={`btn small${prefs.showWorstCase ? ' active' : ''}`}
+        title={
+          prefs.showWorstCase
+            ? 'Hide the worst-case extra time (hatched)'
+            : 'Show the worst-case extra time (hatched)'
+        }
+        onClick={() => s.setPrefs({ showWorstCase: !prefs.showWorstCase })}
+        data-testid="toggle-worst-case"
+      >
+        <Icon name="warn" size={14} /> Worst case
+      </button>
+      <button
         className="btn small"
         onClick={s.collapseToPhases}
         title="Collapse to phases (executive view)"

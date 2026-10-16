@@ -91,6 +91,21 @@ export function renameTask(id: string, name: string) {
   return updateTask(id, { name: next }, `Renamed ${nameOf(id)} to ${quoted(next)}`);
 }
 
+/** Worst-case extra working days for a task (0 removes them). */
+export function setWorstCase(id: string, extra: number) {
+  const n = Math.max(0, Math.round(extra));
+  return st().commit(
+    n
+      ? `Worst case of ${nameOf(id)}: +${days(n, 'working day')}`
+      : `Worst case of ${nameOf(id)} removed`,
+    (d) => {
+      const t = findTask(d, id);
+      if (n) t.worstCaseDays = n;
+      else delete t.worstCaseDays;
+    },
+  );
+}
+
 export function setDuration(id: string, duration: number) {
   const value = Math.max(0, Math.round(duration));
   return updateTask(
@@ -556,32 +571,73 @@ export function outdentTasks(ids: string[]) {
 }
 
 /** Drag-and-drop move: place `id` before/after `targetId`, or inside it as the last child. */
-export function moveTask(id: string, targetId: string, position: 'before' | 'after' | 'inside') {
-  if (id === targetId) return { ok: true };
+export type DropPosition = 'before' | 'after' | 'inside';
+
+/** Why the tasks cannot be dropped there, or null when the drop is allowed. */
+export function moveBlockedReason(
+  project: Project,
+  ids: string[],
+  targetId: string,
+): string | null {
+  for (const id of selectionRoots(project, ids)) {
+    if (descendantIds(project, id).has(targetId)) {
+      return 'A task cannot be moved into itself or one of its own subtasks';
+    }
+  }
+  return null;
+}
+
+/**
+ * Drag-and-drop move of one or more tasks (with their subtasks): place them, in their current
+ * outline order, before or after `targetId`, or inside it as its last subtasks. One undo step.
+ */
+export function moveTasks(ids: string[], targetId: string, position: DropPosition): CommitResult {
   const p = st().project;
   if (!p) return { ok: false };
-  if (descendantIds(p, id).has(targetId)) {
-    st().toast('A task cannot be moved into itself', 'error');
-    return { ok: false };
+  const roots = selectionRoots(p, ids).filter((id) => id !== targetId);
+  if (!roots.length) return { ok: true };
+  const blocked = moveBlockedReason(p, roots, targetId);
+  if (blocked) {
+    st().toast(blocked, 'error');
+    return { ok: false, error: blocked };
   }
+  const what = roots.length === 1 ? nameOf(roots[0]) : `${roots.length} tasks`;
   const where = position === 'inside' ? 'into' : position;
   return st().commit(
-    `Moved ${nameOf(id)} ${where} ${nameOf(targetId)}`,
+    `Moved ${what} ${where} ${nameOf(targetId)}`,
     (d) => {
-      const t = findTask(d, id);
       const target = findTask(d, targetId);
+      const n = roots.length;
       if (position === 'inside') {
-        const kids = siblingsOf(d, target.id);
-        t.parentId = target.id;
-        t.order = kids.length ? kids[kids.length - 1].order + 1 : 0;
+        const kids = siblingsOf(d, target.id).filter((k) => !roots.includes(k.id));
+        const start = kids.length ? kids[kids.length - 1].order + 1 : 0;
+        roots.forEach((id, k) => {
+          const t = findTask(d, id);
+          t.parentId = target.id;
+          t.order = start + k;
+        });
+        // A task that becomes a summary no longer has its own constraint.
         target.constraint = { type: 'ASAP' };
       } else {
-        t.parentId = target.parentId;
-        t.order = target.order + (position === 'before' ? -0.5 : 0.5);
+        // Sibling orders are whole numbers after every structural edit, so fractions between
+        // the target and its neighbour keep the moved block together and in order.
+        const base = position === 'before' ? target.order - 1 : target.order;
+        const parentId = target.parentId;
+        roots.forEach((id, k) => {
+          const t = findTask(d, id);
+          t.parentId = parentId;
+          t.order = base + (k + 1) / (n + 1);
+        });
       }
     },
     { structural: true },
   );
+}
+
+/** Drag-and-drop move of a single task. */
+export function moveTask(id: string, targetId: string, position: DropPosition) {
+  if (id === targetId) return { ok: true };
+  return moveTasks([id], targetId, position);
 }
 
 // ------------------------------------------------------------------ links
@@ -706,6 +762,8 @@ export interface BulkChanges {
   shiftStartBy?: number;
   /** Text added on a new line at the end of each task's notes. */
   appendNotes?: string;
+  /** Worst-case extra working days (0 removes them). */
+  worstCaseDays?: number;
 }
 
 /**
@@ -789,6 +847,16 @@ export function bulkUpdate(
       `start moved ${shift > 0 ? 'later' : 'earlier'} by ${days(Math.abs(shift), 'working day')}`,
     );
   }
+  const worst =
+    changes.worstCaseDays === undefined
+      ? undefined
+      : Math.max(0, Math.round(changes.worstCaseDays));
+  if (worst !== undefined && !Number.isFinite(worst)) {
+    return fail('Worst-case time must be a number of working days');
+  }
+  if (worst !== undefined) {
+    parts.push(worst ? `worst case +${days(worst, 'working day')}` : 'worst case removed');
+  }
   if (note) parts.push('notes added');
   if (!parts.length) return fail('Choose at least one thing to change');
 
@@ -801,6 +869,10 @@ export function bulkUpdate(
         const t = findTask(d, id);
         const c = schedule.calc.get(id);
         if (duration !== undefined) t.duration = duration;
+        if (worst !== undefined) {
+          if (worst) t.worstCaseDays = worst;
+          else delete t.worstCaseDays;
+        }
         if (calendar) t.calendarId = calendar.id;
         if (pct !== undefined) applyPercent(t, pct, c);
         if (status) applyStatusFields(t, statusFields(t, status, scheduledDates(p, id)));

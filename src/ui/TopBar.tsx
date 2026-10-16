@@ -17,6 +17,12 @@ export function TopBar({ onBack }: { onBack: () => void }) {
     const c = schedule.calc.get(id);
     if (c) finish = Math.max(finish, displayFinishDay(c));
   }
+  let worstFinish: number | null = null;
+  if (derived.worst) {
+    for (const c of derived.worst.calc.values()) {
+      worstFinish = Math.max(worstFinish ?? 0, displayFinishDay(c));
+    }
+  }
   return (
     <>
       <div className="topbar">
@@ -34,6 +40,16 @@ export function TopBar({ onBack }: { onBack: () => void }) {
         <span className="meta" data-testid="project-dates">
           {fmtDay(schedule.projectStart)} →{' '}
           <strong data-testid="project-finish">{fmtDay(finish)}</strong>
+          {worstFinish !== null && worstFinish > finish && (
+            <span
+              className="worst-finish"
+              title="Finish if every task takes its worst-case extra time"
+              data-testid="worst-finish"
+            >
+              {' '}
+              · worst case {fmtDay(worstFinish)}
+            </span>
+          )}
         </span>
         {schedule.errors.length > 0 && <span className="err">{schedule.errors[0]}</span>}
         <span className="spacer" />

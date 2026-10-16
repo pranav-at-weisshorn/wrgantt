@@ -47,6 +47,7 @@ export function TaskDialog({ taskId, tab: initialTab }: { taskId: string; tab?: 
   const [form, setForm] = useState(() => ({
     name: task?.name ?? '',
     duration: String(task?.duration ?? 0),
+    worstCase: String(task?.worstCaseDays ?? 0),
     calendarId: task?.calendarId ?? project.projectCalendarId,
     cType: task?.constraint.type ?? 'ASAP',
     cDate: task?.constraint.date ?? '',
@@ -124,6 +125,9 @@ export function TaskDialog({ taskId, tab: initialTab }: { taskId: string; tab?: 
         t.notes = form.notes;
         if (!isSummary) {
           t.duration = dur!;
+          const extra = Math.max(0, Math.round(Number(form.worstCase) || 0));
+          if (extra) t.worstCaseDays = extra;
+          else delete t.worstCaseDays;
           t.calendarId = form.calendarId;
           t.constraint =
             form.cType === 'ASAP' ? { type: 'ASAP' } : { type: form.cType, date: form.cDate };
@@ -336,6 +340,25 @@ export function TaskDialog({ taskId, tab: initialTab }: { taskId: string; tab?: 
                   : '0 = milestone; accepts 10, 2 weeks, 1 month'}
               </span>
             </div>
+            {!isSummary && (
+              <>
+                <label htmlFor="td-worst">Worst case: extra working days</label>
+                <div className="row-inline">
+                  <input
+                    id="td-worst"
+                    className="input"
+                    type="number"
+                    min={0}
+                    value={form.worstCase}
+                    style={{ width: 100 }}
+                    onChange={(e) => set({ worstCase: e.target.value })}
+                  />
+                  <span className="hint">
+                    Shown hatched after the bar; the plan itself is not moved
+                  </span>
+                </div>
+              </>
+            )}
             <label htmlFor="td-cal">Calendar</label>
             <select
               id="td-cal"

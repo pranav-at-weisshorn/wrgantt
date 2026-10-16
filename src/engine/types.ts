@@ -63,6 +63,8 @@ export interface Task {
   percentComplete: number;
   /** User-set status; see `statusOf` for the effective value (progress takes precedence). */
   status?: TaskStatus;
+  /** Extra working days the task could take in the worst case (shown hatched; not scheduled). */
+  worstCaseDays?: number;
   actualStart?: string;
   actualFinish?: string;
 

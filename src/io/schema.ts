@@ -102,6 +102,9 @@ export function normaliseProject(raw: unknown): Project {
       percentComplete: Math.max(0, Math.min(100, num(t.percentComplete))),
     };
     if (typeof t.templateKey === 'string') task.templateKey = t.templateKey;
+    if (typeof t.worstCaseDays === 'number' && t.worstCaseDays >= 1) {
+      task.worstCaseDays = Math.round(t.worstCaseDays);
+    }
     if (TASK_STATUSES.includes(t.status as TaskStatus)) task.status = t.status as TaskStatus;
     if (typeof t.phaseColor === 'string') {
       task.phaseColor = LEGACY_PHASE_COLORS[t.phaseColor.toLowerCase()] ?? t.phaseColor;

@@ -11,6 +11,7 @@ import {
   type UIEvent,
 } from 'react';
 import {
+  worstCaseEnd,
   activeBaseline,
   CONSTRAINT_LABEL,
   days,
@@ -30,6 +31,7 @@ import { fmtDay, fmtSigned } from '../format';
 import { HEADER_H, linkTexts, ROW_H, type Row } from '../rows';
 import { linkPath, type BarBox } from './arrows';
 import { TIERS, ticks, type Scale } from './scale';
+import './worst-case.css';
 
 interface Props {
   project: Project;
@@ -259,6 +261,34 @@ export function Timeline(props: Props) {
 
   const visibleRows = rows.slice(first, last + 1);
 
+  const worstEnds = useMemo(() => {
+    const out = new Map<string, number>();
+    if (!prefs.showWorstCase) return out;
+    const { outline, schedule } = derived;
+    for (const t of project.tasks) {
+      const extra = t.worstCaseDays ?? 0;
+      const c = schedule.calc.get(t.id);
+      if (!extra || !c || outline.isSummary(t.id) || c.percentComplete >= 100) continue;
+      out.set(t.id, worstCaseEnd(calFor(project, t.calendarId), c.es, c.ef, extra));
+    }
+    if (out.size) {
+      for (const id of outline.flat) {
+        if (!outline.isSummary(id)) continue;
+        let end = -Infinity;
+        for (const l of outline.leavesOf(id)) end = Math.max(end, out.get(l) ?? -Infinity);
+        const c = schedule.calc.get(id);
+        if (c && end > c.ef) out.set(id, end);
+      }
+    }
+    return out;
+  }, [project, derived, prefs.showWorstCase]);
+  const worstProjectFinish =
+    prefs.showWorstCase &&
+    derived.worst &&
+    derived.worst.projectFinish > derived.schedule.projectFinish
+      ? derived.worst.projectFinish
+      : null;
+
   const links = useMemo(() => {
     const out: { id: string; d: string; crit: boolean }[] = [];
     if (!prefs.showLinks) return out;
@@ -404,6 +434,26 @@ export function Timeline(props: Props) {
           }}
         >
           <defs>
+            <pattern
+              id="hatch"
+              patternUnits="userSpaceOnUse"
+              width="6"
+              height="6"
+              patternTransform="rotate(45)"
+            >
+              <rect width="6" height="6" fill="var(--bg)" />
+              <line x1="0" y1="0" x2="0" y2="6" stroke="var(--vf-mocca)" strokeWidth="2.4" />
+            </pattern>
+            <pattern
+              id="hatch-crit"
+              patternUnits="userSpaceOnUse"
+              width="6"
+              height="6"
+              patternTransform="rotate(45)"
+            >
+              <rect width="6" height="6" fill="var(--bg)" />
+              <line x1="0" y1="0" x2="0" y2="6" stroke="var(--crit)" strokeWidth="2.4" />
+            </pattern>
             <marker
               id="arrow"
               viewBox="0 0 8 8"
@@ -485,6 +535,7 @@ export function Timeline(props: Props) {
               crit={prefs.showCritical && !!row.calc?.critical}
               critStyle={prefs.criticalStyle}
               showLabel={prefs.showLabels}
+              worstEnd={worstEnds.get(row.id)}
               onPointerDown={startDrag}
               onPressSummary={pressSummary}
               onDoubleClick={(id) => setDialog({ kind: 'task', taskId: id })}
@@ -494,6 +545,17 @@ export function Timeline(props: Props) {
           {today >= scale.start && today <= scale.end && (
             <line className="today-line" x1={scale.x(today)} x2={scale.x(today)} y1={0} y2={height}>
               <title>Today</title>
+            </line>
+          )}
+          {worstProjectFinish !== null && worstProjectFinish <= scale.end && (
+            <line
+              className="worst-line"
+              x1={scale.x(worstProjectFinish)}
+              x2={scale.x(worstProjectFinish)}
+              y1={0}
+              y2={height}
+            >
+              <title>Worst-case project finish</title>
             </line>
           )}
           {statusDay >= scale.start && statusDay <= scale.end && (
@@ -581,6 +643,8 @@ interface BarRowProps {
   crit: boolean;
   critStyle: 'fill' | 'outline';
   showLabel: boolean;
+  /** Exclusive end of the worst-case extension (hatched), if any. */
+  worstEnd?: number;
   onPointerDown: (e: React.PointerEvent, row: Row, kind: 'move' | 'resize' | 'link') => void;
   onPressSummary: (e: React.PointerEvent, row: Row) => void;
   onDoubleClick: (id: string) => void;
@@ -601,6 +665,30 @@ const BarRow = memo(function BarRow(p: BarRowProps) {
     onPointerLeave: () => p.onHover(null),
     onDoubleClick: () => p.onDoubleClick(row.id),
   };
+
+  let hatchEl: ReactNode = null;
+  const isMs = c.isMilestone && !row.isSummary;
+  if (p.worstEnd !== undefined && p.worstEnd > (isMs ? c.es : c.ef)) {
+    const from = isMs ? x0 + MS_HALF + 1 : x1;
+    const to = scale.x(p.worstEnd);
+    const hy = row.isSummary ? top + g.y + 2 : top + g.y + 2;
+    const hh = row.isSummary ? 6 : g.h - 4;
+    hatchEl = (
+      <rect
+        className="worst-case"
+        x={from}
+        y={hy}
+        width={Math.max(2, to - from)}
+        height={hh}
+        fill={`url(#${p.crit ? 'hatch-crit' : 'hatch'})`}
+        stroke={p.crit ? 'var(--crit)' : 'var(--vf-mocca)'}
+        strokeWidth={1}
+        strokeDasharray="3 2"
+        pointerEvents="none"
+        data-testid="worst-case-hatch"
+      />
+    );
+  }
 
   let blEl: ReactNode = null;
   if (p.baseline) {
@@ -626,7 +714,12 @@ const BarRow = memo(function BarRow(p: BarRowProps) {
   const label = p.showLabel ? (
     <text
       className="label"
-      x={(c.isMilestone && !row.isSummary ? x0 + MS_HALF : x1) + 12}
+      x={
+        Math.max(
+          c.isMilestone && !row.isSummary ? x0 + MS_HALF : x1,
+          p.worstEnd !== undefined ? scale.x(p.worstEnd) : -Infinity,
+        ) + 12
+      }
       y={top + g.y + g.h / 2 + 4}
     >
       {row.task.name}
@@ -648,6 +741,7 @@ const BarRow = memo(function BarRow(p: BarRowProps) {
         }}
       >
         {blEl}
+        {hatchEl}
         <path className="bar summary bar-outline" d={d} fill="var(--summary)" />
         {label}
       </g>
@@ -667,6 +761,7 @@ const BarRow = memo(function BarRow(p: BarRowProps) {
     return (
       <g className={`bar-group${p.selected ? ' selected' : ''}`} data-id={row.id} {...hoverProps}>
         {blEl}
+        {hatchEl}
         <path
           className="bar bar-outline"
           d={`M${x0},${cy - s}L${x0 + s},${cy}L${x0},${cy + s}L${x0 - s},${cy}Z`}
@@ -694,6 +789,7 @@ const BarRow = memo(function BarRow(p: BarRowProps) {
   return (
     <g className={`bar-group${p.selected ? ' selected' : ''}`} data-id={row.id} {...hoverProps}>
       {blEl}
+      {hatchEl}
       <rect
         className="bar bar-outline"
         x={x0}
@@ -771,6 +867,26 @@ function BarTooltip(p: {
         <dd>{fmtDay(fin)}</dd>
         <dt>Duration</dt>
         <dd>{c.isMilestone && !p.ghost ? 'Milestone' : days(dur)}</dd>
+        {(t.worstCaseDays ?? 0) > 0 && !p.ghost && (
+          <>
+            <dt>Worst case</dt>
+            <dd>
+              +{days(t.worstCaseDays!, 'working day')}, finishing{' '}
+              {fmtDay(
+                displayFinishDay({
+                  es: c.es,
+                  ef: worstCaseEnd(calFor(p.project, t.calendarId), c.es, c.ef, t.worstCaseDays!),
+                }),
+              )}
+            </dd>
+          </>
+        )}
+        {p.derived.worst && !p.ghost && p.derived.worst.calc.get(p.id) && (
+          <>
+            <dt>If all overrun</dt>
+            <dd>finishes {fmtDay(displayFinishDay(p.derived.worst.calc.get(p.id)!))}</dd>
+          </>
+        )}
         <dt>Total float</dt>
         <dd style={{ color: c.totalFloat < 0 ? 'var(--danger)' : undefined }}>
           {days(c.totalFloat)}

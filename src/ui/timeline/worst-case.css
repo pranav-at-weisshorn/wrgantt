@@ -1,0 +1,9 @@
+/* Worst-case extra time: hatched extension and project worst-case finish line. */
+.tl-body .worst-line {
+  stroke: var(--crit);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 4;
+}
+.worst-finish {
+  color: var(--crit);
+}

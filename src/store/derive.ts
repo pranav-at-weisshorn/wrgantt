@@ -1,10 +1,19 @@
-import { buildOutline, checkHealth, scheduleProject, type Outline } from '../engine';
+import {
+  buildOutline,
+  checkHealth,
+  hasWorstCase,
+  scheduleProject,
+  worstCaseProject,
+  type Outline,
+} from '../engine';
 import type { HealthIssue, Project, ScheduleResult } from '../engine';
 
 export interface Derived {
   outline: Outline;
   schedule: ScheduleResult;
   health: HealthIssue[];
+  /** Schedule with every task's worst-case extra time added (null when no task has any). */
+  worst: ScheduleResult | null;
 }
 
 /**
@@ -18,7 +27,12 @@ export function derive(project: Project, outline?: Outline): Derived {
   if (!d) {
     const o = outline ?? buildOutline(project.tasks);
     const schedule = scheduleProject(project, o);
-    d = { outline: o, schedule, health: checkHealth(project, schedule, o) };
+    let worst: ScheduleResult | null = null;
+    if (hasWorstCase(project)) {
+      const wp = worstCaseProject(project, o);
+      worst = scheduleProject(wp, buildOutline(wp.tasks));
+    }
+    d = { outline: o, schedule, health: checkHealth(project, schedule, o), worst };
     cache.set(project, d);
   }
   return d;

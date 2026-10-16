@@ -8,3 +8,34 @@
 .tl-svg {
   user-select: none;
 }
+
+/* Row drag: handles, blocked targets and the floating label. */
+.grid-row .cell[data-col='wbs'],
+.grid-row .cell[data-col='indicators'] {
+  cursor: grab;
+}
+.grid-row.dragging {
+  opacity: 0.55;
+}
+.grid-row.drop-blocked {
+  outline: 2px dashed var(--crit);
+  outline-offset: -2px;
+}
+.row-drag-label {
+  position: fixed;
+  z-index: 120;
+  max-width: 420px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--vf-dark-wood);
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  box-shadow: var(--shadow);
+}
+.row-drag-label.blocked {
+  background: var(--crit);
+}

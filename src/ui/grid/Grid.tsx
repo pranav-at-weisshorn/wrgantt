@@ -21,7 +21,8 @@ import {
   indentTask,
   indentTasks,
   insertTask,
-  moveTask,
+  moveBlockedReason,
+  moveTasks,
   moveTasksBy,
   outdentTask,
   outdentTasks,
@@ -33,6 +34,7 @@ import {
   setPredecessorsText,
   setStartDate,
   setStatus,
+  setWorstCase,
   updateTask,
 } from '../../store/ops';
 import type { ColumnKey } from '../../store/prefs';
@@ -68,10 +70,17 @@ interface Editing {
 
 interface RowDrag {
   id: string;
+  /** Tasks being moved: the selection when the dragged row is part of it. */
+  ids: string[];
   startY: number;
+  x: number;
+  y: number;
   active: boolean;
-  target?: { id: string; pos: 'before' | 'after' | 'inside' };
+  target?: { id: string; pos: 'before' | 'after' | 'inside'; blocked: string | null };
 }
+
+/** Cells that start a row drag (the name cell is for clicking and editing). */
+const DRAG_HANDLE_COLS = new Set(['id', 'wbs', 'indicators']);
 
 export function Grid(props: Props) {
   const { project, rows, rowIndex, columns, width, first, last, bodyRef, onBodyScroll } = props;
@@ -256,6 +265,14 @@ export function Grid(props: Props) {
       case 'status':
         res = setStatus(row.id, v as TaskStatus);
         break;
+      case 'worstCase': {
+        const d = v.trim() === '' ? 0 : parseDuration(v);
+        res =
+          d === null
+            ? { ok: false, error: 'Enter extra working days, such as 5, 2 weeks, or 0 for none' }
+            : setWorstCase(row.id, d);
+        break;
+      }
       case 'duration': {
         const d = parseDuration(v);
         res =
@@ -423,6 +440,7 @@ export function Grid(props: Props) {
       const el = bodyRef.current;
       if (!d || !el) return;
       if (!d.active && Math.abs(e.clientY - d.startY) < 5) return;
+      if (!d.active && !selectedSet.has(d.id)) select(d.id);
       const rect = el.getBoundingClientRect();
       if (e.clientY < rect.top + 24) el.scrollTop -= 12;
       else if (e.clientY > rect.bottom - 24) el.scrollTop += 12;
@@ -431,12 +449,21 @@ export function Grid(props: Props) {
       const target = rows[Math.max(0, Math.min(rows.length - 1, idx))];
       const off = (y - idx * ROW_H) / ROW_H;
       const pos = off < 0.3 ? 'before' : off > 0.7 ? 'after' : 'inside';
-      setRowDrag({ ...d, active: true, target: target ? { id: target.id, pos } : undefined });
+      const blocked = target && project ? moveBlockedReason(project, d.ids, target.id) : null;
+      setRowDrag({
+        ...d,
+        active: true,
+        x: e.clientX,
+        y: e.clientY,
+        target: target ? { id: target.id, pos, blocked } : undefined,
+      });
     };
     const onUp = () => {
       const d = dragRef.current;
       setRowDrag(null);
-      if (d?.active && d.target && d.target.id !== d.id) moveTask(d.id, d.target.id, d.target.pos);
+      if (!d?.active || !d.target || d.target.blocked) return;
+      if (d.ids.length === 1 && d.ids[0] === d.target.id) return;
+      moveTasks(d.ids, d.target.id, d.target.pos);
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
@@ -508,8 +535,22 @@ export function Grid(props: Props) {
         style={{ width: col.width }}
         data-col={col.key}
         onPointerDown={(e) => {
-          if (col.key === 'id' && e.button === 0 && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
-            setRowDrag({ id: row.id, startY: e.clientY, active: false });
+          if (
+            DRAG_HANDLE_COLS.has(col.key) &&
+            e.button === 0 &&
+            !e.shiftKey &&
+            !e.ctrlKey &&
+            !e.metaKey
+          ) {
+            const ids = selectedSet.has(row.id) && selectedIds.length > 1 ? selectedIds : [row.id];
+            setRowDrag({
+              id: row.id,
+              ids,
+              startY: e.clientY,
+              x: e.clientX,
+              y: e.clientY,
+              active: false,
+            });
           }
         }}
         onClick={(e) => {
@@ -547,9 +588,12 @@ export function Grid(props: Props) {
                 focusGrid();
               }
             }}
-            onPointerDown={() => {
+            onPointerDown={(e) => {
+              e.stopPropagation();
               selectByKey.current = false;
             }}
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               selectByKey.current = e.key.startsWith('Arrow') || e.key.length === 1;
               onEditorKey(e);
@@ -581,6 +625,10 @@ export function Grid(props: Props) {
               }
               onKeyDown={onEditorKey}
               onBlur={onEditorBlur}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
+              onContextMenu={(e) => e.stopPropagation()}
               aria-label={col.label}
               data-testid={`editor-${col.key}`}
             />
@@ -618,6 +666,7 @@ export function Grid(props: Props) {
           ))}
         </div>
       </div>
+      {rowDrag?.active && <DragLabel drag={rowDrag} project={project} />}
       <div className="pane-body grid-body" ref={bodyRef} onScroll={onBody} data-testid="grid-body">
         <div style={{ height: rows.length * ROW_H, width: totalW, position: 'relative' }}>
           {rows.slice(first, last + 1).map((row, k) => {
@@ -626,9 +675,10 @@ export function Grid(props: Props) {
             if (selectedSet.has(row.id)) cls.push('selected');
             if (row.isSummary) cls.push('summary');
             if (row.isSummary && row.depth === 0) cls.push('phase');
-            if (rowDrag?.active && rowDrag.target?.id === row.id && rowDrag.id !== row.id) {
-              cls.push(`drop-${rowDrag.target.pos}`);
+            if (rowDrag?.active && rowDrag.target?.id === row.id && !rowDrag.ids.includes(row.id)) {
+              cls.push(rowDrag.target.blocked ? 'drop-blocked' : `drop-${rowDrag.target.pos}`);
             }
+            if (rowDrag?.active && rowDrag.ids.includes(row.id)) cls.push('dragging');
             return (
               <div
                 key={row.id}
@@ -704,4 +754,30 @@ function Indicators({ row }: { row: Row }) {
     );
   }
   return <span className="ind">{items}</span>;
+}
+
+function DragLabel({ drag, project }: { drag: RowDrag; project: Project }) {
+  const name = (id: string) => project.tasks.find((t) => t.id === id)?.name ?? 'task';
+  const what = drag.ids.length === 1 ? `“${name(drag.ids[0])}”` : `${drag.ids.length} tasks`;
+  let where = 'Drop on a row';
+  if (drag.target?.blocked) where = drag.target.blocked;
+  else if (drag.target && drag.ids.includes(drag.target.id)) where = 'Drop on another row';
+  else if (drag.target) {
+    const t = `“${name(drag.target.id)}”`;
+    where =
+      drag.target.pos === 'inside'
+        ? `as subtasks of ${t}`
+        : drag.target.pos === 'before'
+          ? `above ${t}`
+          : `below ${t}`;
+  }
+  return (
+    <div
+      className={`row-drag-label${drag.target?.blocked ? ' blocked' : ''}`}
+      style={{ left: drag.x + 14, top: drag.y + 12 }}
+      data-testid="row-drag-label"
+    >
+      Moving {what} · {where}
+    </div>
+  );
 }
