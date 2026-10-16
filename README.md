@@ -117,6 +117,18 @@ download is needed on Windows. Elsewhere, run `npx playwright install chromium` 
 - Opening the same project in a second tab makes that tab read-only, so tabs never overwrite
   each other.
 
+## Day counts
+
+Durations, lags and float are counted in working days of the calendar. If every day of the week
+is a working day (Settings → Calendars), a working day is simply a calendar day. When you type a
+duration, "1 week" means one week of the project calendar (7 days on a seven-day calendar, 5 on
+Monday to Friday) and "1 month" means 30 calendar days (30 days on a seven-day calendar, 21 on
+Monday to Friday). A phase's duration counts from its start to its displayed finish, inclusive.
+
+A task with an actual start (set when its status or % complete is changed) is drawn from that
+date even if its predecessors finish later; its remaining work waits for them. Clear the actual
+start in the task dialog if the task has not really started.
+
 ## Predecessor syntax
 
 The _Predecessors_ and _Successors_ columns show links in full, by row ID (the ID column):
@@ -127,13 +139,13 @@ The _Predecessors_ and _Successors_ columns show links in full, by row ID (the I
 
 You can type exactly that, or the short forms below (they are converted to the full wording):
 
-| You type                                                                                            | Meaning                                                                   |
-| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `12`                                                                                                | Finish-to-Start from task 12 (this task starts after 12 finishes), no lag |
-| `Finish-to-Start`, `Start-to-Start`, `Finish-to-Finish`, `Start-to-Finish` (or `FS` `SS` `FF` `SF`) | Link type; Finish-to-Start if omitted                                     |
-| `+10 working days` (or `+10d`) / `-2 working days`                                                  | Lag, or a lead if negative, in working days of the project calendar       |
-| `+30 calendar days` (or `+30ed`)                                                                    | Lag in calendar days (weekends and holidays count)                        |
-| `+2 weeks`                                                                                          | Ten working days                                                          |
+| You type                                                                                            | Meaning                                                                                     |
+| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `12`                                                                                                | Finish-to-Start from task 12 (this task starts after 12 finishes), no lag                   |
+| `Finish-to-Start`, `Start-to-Start`, `Finish-to-Finish`, `Start-to-Finish` (or `FS` `SS` `FF` `SF`) | Link type; Finish-to-Start if omitted                                                       |
+| `+10 working days` (or `+10d`) / `-2 working days`                                                  | Lag, or a lead if negative, in working days of the project calendar                         |
+| `+30 calendar days` (or `+30ed`)                                                                    | Lag in calendar days (weekends and holidays count)                                          |
+| `+2 weeks`                                                                                          | Two weeks of the project calendar (14 days on a seven-day calendar, 10 on Monday to Friday) |
 
 Row IDs renumber automatically when tasks are inserted, moved or deleted (including a whole
 parent task with its subtasks); links always follow the tasks, so the predecessor text updates

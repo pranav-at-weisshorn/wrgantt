@@ -22,6 +22,7 @@ import { derive } from '../../store/derive';
 import { normaliseStatus, quoted, statusFields } from '../../store/ops';
 import { useStore } from '../../store/store';
 import { fmtDay, parseDuration } from '../format';
+import { workingDaysPerWeek } from '../../engine';
 import { Modal } from './Modal';
 
 type Tab = 'general' | 'predecessors' | 'successors' | 'notes';
@@ -105,7 +106,7 @@ export function TaskDialog({ taskId, tab: initialTab }: { taskId: string; tab?: 
   };
 
   const save = () => {
-    const dur = parseDuration(form.duration);
+    const dur = parseDuration(form.duration, workingDaysPerWeek(project));
     if (!isSummary && dur === null)
       return setError('Duration must be a number of working days (0 = milestone)');
     const pct = Number(form.pct);

@@ -1,5 +1,13 @@
 import { format, isValid, parse } from 'date-fns';
-import { dayToLocalDate, days, isoToDay, localDateToDay, dayToIso, signedDays } from '../engine';
+import {
+  dayToLocalDate,
+  days,
+  isoToDay,
+  localDateToDay,
+  dayToIso,
+  signedDays,
+  durationUnits,
+} from '../engine';
 
 export const DATE_FMT = 'EEE dd MMM yy';
 
@@ -56,13 +64,19 @@ export function parseDateInput(text: string): string | null {
 }
 
 /** Parse "10", "10d", "2w", "1mo", "0". Returns working days or null. */
-export function parseDuration(text: string): number | null {
+/**
+ * Parse "10", "10 days", "2 weeks", "1 month", "0". Returns working days or null. A week is
+ * `perWeek` working days (the project calendar's working days per week) and a month is 30
+ * calendar days' worth: 30 on a seven-day calendar, 21 on a five-day one.
+ */
+export function parseDuration(text: string, perWeek = 5): number | null {
   const m = /^\s*(\d+(?:\.\d+)?)\s*(d|days?|w|wks?|weeks?|mo|mons?|months?)?\s*$/i.exec(text);
   if (!m) return null;
   let v = parseFloat(m[1]);
   const u = (m[2] ?? 'd').toLowerCase();
-  if (u.startsWith('w')) v *= 5;
-  else if (u.startsWith('mo')) v *= 20;
+  const units = durationUnits(perWeek);
+  if (u.startsWith('w')) v *= units.week;
+  else if (u.startsWith('mo')) v *= units.month;
   return Math.round(v);
 }
 

@@ -1,5 +1,6 @@
 import { detectCycle } from './graph';
 import { DEP_TYPE_LABEL, lagText } from './labels';
+import { workingDaysPerWeek } from './units';
 import { buildOutline, isSelfOrAncestor } from './outline';
 import type { Dependency, DepType, LagUnit, Project } from './types';
 
@@ -40,7 +41,10 @@ export const PREDECESSOR_EXAMPLE = '12, 18 Start-to-Start +10 working days, 41 +
  * ("18 Start-to-Start +10 working days, 41 Finish-to-Start +30 calendar days") and, as typing
  * shortcuts, the compact forms ("18SS+10d, 41FS+30ed"). The type defaults to Finish-to-Start.
  */
-export function parseLinkList(text: string): { links: ParsedLink[]; errors: string[] } {
+export function parseLinkList(
+  text: string,
+  perWeek = 5,
+): { links: ParsedLink[]; errors: string[] } {
   const links: ParsedLink[] = [];
   const errors: string[] = [];
   const parts = text
@@ -64,7 +68,7 @@ export function parseLinkList(text: string): { links: ParsedLink[]; errors: stri
     else if (unit === 'ew' || unit.startsWith('calendarweek')) {
       lag *= 7;
       lagUnit = 'ed';
-    } else if (unit === 'w' || unit.includes('week')) lag *= 5;
+    } else if (unit === 'w' || unit.includes('week')) lag *= perWeek;
     links.push({ rowId, type, lag: Math.round(lag), lagUnit });
   }
   return { links, errors };
@@ -97,7 +101,7 @@ export function resolvePredecessorText(
   text: string,
   newId: () => string,
 ): ResolveResult {
-  const { links, errors } = parseLinkList(text);
+  const { links, errors } = parseLinkList(text, workingDaysPerWeek(project));
   if (errors.length) return { ok: false, error: errors[0] };
   const byRow = new Map(project.tasks.map((t) => [t.rowId, t]));
   const byId = new Map(project.tasks.map((t) => [t.id, t]));

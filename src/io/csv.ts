@@ -4,6 +4,7 @@ import {
   detectCycle,
   newId,
   parseLinkList,
+  workingDaysPerWeek,
   renumber,
   type Dependency,
   type Project,
@@ -74,7 +75,7 @@ export function projectFromCsv(text: string, name: string): CsvImportResult {
     let duration = 1;
     const durText = cell(ci.duration);
     if (durText) {
-      const d = parseDuration(durText);
+      const d = parseDuration(durText, workingDaysPerWeek(project));
       if (d === null)
         warnings.push(`Row ${rowNo}: duration "${durText}" not understood; using 1 day`);
       else duration = d;
@@ -94,7 +95,7 @@ export function projectFromCsv(text: string, name: string): CsvImportResult {
   });
 
   for (const [task, text] of predText) {
-    const { links, errors } = parseLinkList(text);
+    const { links, errors } = parseLinkList(text, workingDaysPerWeek(project));
     for (const e of errors) warnings.push(`${task.name}: ${e}`);
     for (const l of links) {
       const pred = byRow.get(l.rowId);

@@ -9,6 +9,7 @@ import {
 import { bulkTargets, bulkUpdate, type BulkChanges } from '../../store/ops';
 import { useStore } from '../../store/store';
 import { parseDuration } from '../format';
+import { workingDaysPerWeek } from '../../engine';
 import { responsibleParties } from '../rows';
 import { Modal } from './Modal';
 import './bulk-edit.css';
@@ -63,7 +64,7 @@ export function BulkEditDialog({ taskIds }: { taskIds: string[] }) {
       changes.responsible = form.responsible.trim();
     } else if (form.respMode === 'clear') changes.responsible = '';
     if (form.duration.trim() !== '') {
-      const d = parseDuration(form.duration);
+      const d = parseDuration(form.duration, workingDaysPerWeek(project));
       if (d === null) {
         return setError('Duration must be a number of working days (0 = milestone)');
       }

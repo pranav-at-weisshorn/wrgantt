@@ -414,7 +414,8 @@ function rollUpSummaries(
       freeFloat: ff,
       critical: !complete && tf <= threshold,
       remainingDuration: complete ? 0 : Math.max(0, projCal.between(resumeFrom, ef)),
-      duration: Math.max(0, projCal.between(es, ef)),
+      // Counted from the start to the displayed finish (a closing milestone counts its day).
+      duration: Math.max(0, projCal.between(es, ef > es ? Math.max(ef, fd + 1) : ef)),
       percentComplete: Math.round(pct * 10) / 10,
       isSummary: true,
       isMilestone: false,

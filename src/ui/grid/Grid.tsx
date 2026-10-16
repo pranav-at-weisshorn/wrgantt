@@ -16,6 +16,7 @@ import {
   type Project,
   type TaskStatus,
 } from '../../engine';
+import { workingDaysPerWeek } from '../../engine';
 import type { Derived } from '../../store/derive';
 import {
   indentTask,
@@ -266,7 +267,7 @@ export function Grid(props: Props) {
         res = setStatus(row.id, v as TaskStatus);
         break;
       case 'worstCase': {
-        const d = v.trim() === '' ? 0 : parseDuration(v);
+        const d = v.trim() === '' ? 0 : parseDuration(v, workingDaysPerWeek(project));
         res =
           d === null
             ? { ok: false, error: 'Enter extra working days, such as 5, 2 weeks, or 0 for none' }
@@ -274,7 +275,7 @@ export function Grid(props: Props) {
         break;
       }
       case 'duration': {
-        const d = parseDuration(v);
+        const d = parseDuration(v, workingDaysPerWeek(project));
         res =
           d === null
             ? {
