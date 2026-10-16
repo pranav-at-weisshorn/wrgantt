@@ -55,7 +55,11 @@ export function buildHtmlReport(
     summary: options.includeSummary,
     fit: axisTo - axisFrom <= 200,
     baseline: !!activeBaseline(project) && options.includeBaseline,
-    opts: { critical: options.highlightCritical, baseline: options.includeBaseline },
+    opts: {
+      critical: options.highlightCritical,
+      baseline: options.includeBaseline,
+      worst: options.includeWorstCase !== false,
+    },
     kpis: report.kpis,
     milestones: report.milestones,
     phases: report.phases,
@@ -97,6 +101,9 @@ export function buildHtmlReport(
       bf: r.baselineFinish,
       variance: r.variance,
       responsible: r.responsible,
+      wd: r.worstCaseDays,
+      we: r.worstEnd,
+      wf: r.worstFinish,
     })),
   };
 
@@ -312,6 +319,7 @@ const REPORT_JS = String.raw`
     var vc = v === null ? 'muted' : v > 0 ? 'late' : 'onTrack';
     var tiles = h('div', { cls: 'tiles' });
     tiles.appendChild(tile('Project finish', fmt(K.projectFinish), v === null ? 'No baseline set' : varText(v), vc, true));
+    if (K.worstCaseFinish !== null) tiles.appendChild(tile('Worst-case finish', fmt(K.worstCaseFinish), '+' + plural(K.worstCaseDelay, 'working day') + ' if every task overruns', 'late'));
     tiles.appendChild(tile('Baseline finish', K.baselineFinish === null ? 'None' : fmtS(K.baselineFinish), K.baselineName || 'Save a baseline to track slippage'));
     var pc = tile('Overall complete', Math.round(K.percentComplete) + '%', 'Weighted by duration');
     var m = h('div', { cls: 'meter' }); var mi = h('i'); mi.style.width = K.percentComplete + '%'; m.appendChild(mi); pc.appendChild(m);
@@ -346,6 +354,7 @@ const REPORT_JS = String.raw`
         right.appendChild(vv);
       } else if (ms.variance === 0 && !done) right.appendChild(h('div', { cls: 'sm muted', text: 'On baseline' }));
       else if (done) right.appendChild(h('div', { cls: 'sm muted', text: 'Complete' }));
+      if (ms.worstCase !== null && !done) right.appendChild(h('div', { cls: 'sm late', text: 'Worst case ' + fmtS(ms.worstCase) }));
       root.appendChild(h('button', { cls: 'li' + (done ? ' done' : ''), on: { click: function () { openSheet(ms, 'milestone'); } } }, [
         h('span', { cls: 'l' }, [dot(ms.signal), h('span', null, [h('div', { cls: 'nm', text: ms.name }), h('div', { cls: 'sm', text: ms.phaseName })])]),
         right
@@ -506,6 +515,12 @@ const REPORT_JS = String.raw`
     var cw = h('div'); cw.style.width = W + 'px';
     var svg = s('svg', { cls: 'chart', width: W, height: Math.max(H, 1), viewBox: '0 0 ' + W + ' ' + Math.max(H, 1) }, null);
     svg.setAttribute('class', 'chart');
+    var defs = s('defs', {}, svg);
+    [['wh', '#8C7067'], ['whc', '#B3261E']].forEach(function (pp) {
+      var pt = s('pattern', { id: pp[0], patternUnits: 'userSpaceOnUse', width: 6, height: 6, patternTransform: 'rotate(45)' }, defs);
+      s('rect', { width: 6, height: 6, fill: '#FFFFFF' }, pt);
+      s('line', { x1: 0, y1: 0, x2: 0, y2: 6, stroke: pp[1], 'stroke-width': 2.4 }, pt);
+    });
     D.ticks.bottom[lv.bottom].forEach(function (k) { s('line', { x1: X(k.day), x2: X(k.day), y1: 0, y2: H, stroke: '#EFEBE7' }, svg); });
     D.ticks.top[lv.top].forEach(function (k) { s('line', { x1: X(k.day), x2: X(k.day), y1: 0, y2: H, stroke: '#D9D0C8' }, svg); });
     vis.forEach(function (i, n) {
@@ -530,8 +545,9 @@ const REPORT_JS = String.raw`
         if (D.opts.baseline && r.bf !== null) s('rect', { x: X(r.bf + 0.5) - 2, y: y + RH - 7, width: 4, height: 3, fill: '#C4B8AD' }, svg);
         s('rect', { x: cx - 6, y: cy - 6, width: 12, height: 12, fill: color, transform: 'rotate(45 ' + cx + ' ' + cy + ')' }, svg);
         if (S.ppd >= 0.7) {
-          var right = cx + 12 + 70 < W;
-          s('text', { x: right ? cx + 12 : cx - 12, y: cy + 4, 'font-size': 11, fill: '#2A211E', 'text-anchor': right ? 'start' : 'end' }, svg, fmtS(r.start));
+          var lx = D.opts.worst && r.we !== null ? Math.max(cx + 12, X(r.we + 1) + 4) : cx + 12;
+          var right = lx + 70 < W;
+          s('text', { x: right ? lx : cx - 12, y: cy + 4, 'font-size': 11, fill: '#2A211E', 'text-anchor': right ? 'start' : 'end' }, svg, fmtS(r.start));
         }
         hitX = cx - 14; hitW = 28;
       } else if (r.kind === 'phase' || r.kind === 'summary') {
@@ -550,6 +566,16 @@ const REPORT_JS = String.raw`
         s('rect', { x: x1, y: cy - 6, width: w, height: 12, rx: 1.5, fill: color, 'fill-opacity': 0.4 }, svg);
         if (r.percent > 0) s('rect', { x: x1, y: cy - 6, width: w * r.percent / 100, height: 12, rx: 1.5, fill: color }, svg);
         if (r.signal === 'late') s('rect', { x: x1, y: cy - 8, width: w, height: 1.5, fill: '#B3261E' }, svg);
+      }
+      if (D.opts.worst && r.we !== null) {
+        var hf = r.kind === 'milestone' ? r.start + 1 : r.finish + 1;
+        var hx1 = r.kind === 'milestone' ? X(r.start + 0.5) + 7 : X(hf), hx2 = X(r.we + 1);
+        if (hx2 > hx1) {
+          var hc = D.opts.critical && r.critical;
+          var thin = r.kind === 'summary';
+          s('rect', { x: hx1, y: cy - (thin ? 3 : 5), width: Math.max(2, hx2 - hx1), height: thin ? 5 : 10, fill: 'url(#' + (hc ? 'whc' : 'wh') + ')', stroke: hc ? '#B3261E' : '#8C7067', 'stroke-width': 0.8, 'stroke-dasharray': '3 2' }, svg);
+          hitW = Math.max(hitW, hx2 - hitX + 8);
+        }
       }
       var hit = s('rect', { x: hitX, y: y, width: hitW, height: RH, cls: 'hit' }, svg);
       hit.setAttribute('class', 'hit');
@@ -659,6 +685,9 @@ const REPORT_JS = String.raw`
     if (!isMs && o.duration !== undefined) row('Duration', plural(o.duration, 'working day'));
     if (o.percent !== undefined && !isMs) row('Complete', Math.round(o.percent) + '%');
     if (o.totalFloat !== null && o.totalFloat !== undefined) row('Float', plural(o.totalFloat, 'working day'));
+    if (o.wd) row('Worst case', '+' + plural(o.wd, 'working day'));
+    var wf = kind === 'milestone' ? o.worstCase : o.wf;
+    if (wf !== null && wf !== undefined) row(isMs ? 'Date in the worst case' : 'Finish in the worst case', fmt(wf));
     if (D.baseline && bf !== null && bf !== undefined) row(isMs ? 'Baseline date' : 'Baseline finish', fmt(bf));
     if (D.baseline && v !== null && v !== undefined) row('Against baseline', varText(v));
     row('Responsible', o.responsible);

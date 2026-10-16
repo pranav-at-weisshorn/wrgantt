@@ -75,6 +75,7 @@ export function PrintView() {
   return (
     <div className="print-root pv" data-testid="print-view">
       <style>{`@page { size: ${options.paper} landscape; margin: 10mm; }`}</style>
+      <HatchDefs />
       {options.includeSummary && (
         <>
           <SummaryPage report={report} width={width} />
@@ -100,6 +101,60 @@ export function PrintView() {
 }
 
 // ------------------------------------------------------------------------------ shared bits
+
+/** Diagonal hatching for worst-case extra time, shared by every SVG in the print view. */
+function HatchDefs() {
+  const pattern = (id: string, stroke: string) => (
+    <pattern
+      id={id}
+      patternUnits="userSpaceOnUse"
+      width={5}
+      height={5}
+      patternTransform="rotate(45)"
+    >
+      <rect width={5} height={5} fill="#FFFFFF" />
+      <line x1={0} y1={0} x2={0} y2={5} stroke={stroke} strokeWidth={2} />
+    </pattern>
+  );
+  return (
+    <svg width={0} height={0} style={{ position: 'absolute' }} aria-hidden="true">
+      <defs>
+        {pattern('pv-hatch', '#8C7067')}
+        {pattern('pv-hatch-crit', CRITICAL_COLOR)}
+      </defs>
+    </svg>
+  );
+}
+
+/** Hatched worst-case extension after a bar (or milestone), clipped to the slice. */
+function worstCaseHatch(
+  row: ReportRow,
+  slice: ReportSlice,
+  x: (d: number) => number,
+  width: number,
+  critical: boolean,
+  y: number,
+  h: number,
+): ReactNode {
+  if (row.worstEnd === null) return null;
+  const fromDay = row.kind === 'milestone' ? row.start + 1 : row.finish + 1;
+  const toDay = row.worstEnd + 1;
+  if (toDay <= slice.from || fromDay >= slice.to || toDay <= fromDay) return null;
+  const x1 = clamp(x(fromDay), 0, width);
+  const x2 = clamp(x(toDay), 0, width);
+  return (
+    <rect
+      x={x1}
+      y={y}
+      width={Math.max(1.5, x2 - x1)}
+      height={h}
+      fill={`url(#${critical ? 'pv-hatch-crit' : 'pv-hatch'})`}
+      stroke={critical ? CRITICAL_COLOR : '#8C7067'}
+      strokeWidth={0.6}
+      strokeDasharray="2 1.5"
+    />
+  );
+}
 
 function SignalDot({ signal }: { signal: ScheduleHealth }) {
   return (
@@ -168,6 +223,7 @@ function SummaryPage({ report, width }: { report: Report; width: number }) {
   const barW = rightW - nameW - 60 - 60 - 34 - 6;
   const bx = (d: number) => ((d - ov.from) / span) * barW;
   const todayDayNumber = report.generatedDay;
+  const msWorst = report.milestones.some((m) => m.worstCase !== null);
 
   return (
     <div className="pv-page" style={{ width }}>
@@ -178,7 +234,7 @@ function SummaryPage({ report, width }: { report: Report; width: number }) {
         {k.baselineName ? `Baseline: ${k.baselineName}` : 'No baseline saved'} · Created{' '}
         {fmtD(report.generatedDay)}
       </div>
-      <div className="pv-tiles">
+      <div className={`pv-tiles${k.worstCaseFinish !== null ? ' six' : ''}`}>
         <div className="pv-tile">
           <div className="caps">Project finish</div>
           <div className="v">{fmtD(k.projectFinish)}</div>
@@ -186,6 +242,13 @@ function SummaryPage({ report, width }: { report: Report; width: number }) {
             {variance === null ? 'No baseline to compare with' : varText(variance)}
           </div>
         </div>
+        {k.worstCaseFinish !== null && (
+          <div className="pv-tile">
+            <div className="caps">Worst-case finish</div>
+            <div className="v late">{fmtD(k.worstCaseFinish)}</div>
+            <div className="s late">+{k.worstCaseDelay} working days if every task overruns</div>
+          </div>
+        )}
         <div className="pv-tile">
           <div className="caps">Baseline finish</div>
           <div className="v">{k.baselineFinish === null ? 'None' : fmtD(k.baselineFinish)}</div>
@@ -226,6 +289,7 @@ function SummaryPage({ report, width }: { report: Report; width: number }) {
             <colgroup>
               <col />
               <col style={{ width: 62 }} />
+              {msWorst && <col style={{ width: 62 }} />}
               <col style={{ width: 62 }} />
               <col style={{ width: 70 }} />
             </colgroup>
@@ -233,6 +297,7 @@ function SummaryPage({ report, width }: { report: Report; width: number }) {
               <tr>
                 <th>Milestone</th>
                 <th>Planned</th>
+                {msWorst && <th>Worst case</th>}
                 <th>Baseline</th>
                 <th className="r">Variance</th>
               </tr>
@@ -246,6 +311,9 @@ function SummaryPage({ report, width }: { report: Report; width: number }) {
                     </span>
                   </td>
                   <td>{fmtT(m.planned)}</td>
+                  {msWorst && (
+                    <td className="late">{m.worstCase === null ? '' : fmtT(m.worstCase)}</td>
+                  )}
                   <td>{fmtT(m.baseline)}</td>
                   <td
                     className={`r ${m.variance !== null && m.variance > 0 && m.status !== 'complete' ? 'late' : ''}`}
@@ -609,7 +677,13 @@ function RowStrip({
     if (row.start >= slice.from && row.start < slice.to) {
       const cx = x(row.start + 0.5);
       const r = 5.5;
-      const labelRight = cx + r + 4 + 54 < width;
+      // Labels go after the worst-case hatching so they stay readable.
+      const hatchEnd =
+        opts.includeWorstCase && row.worstEnd !== null
+          ? clamp(x(row.worstEnd + 1), 0, width)
+          : -Infinity;
+      const labelX = Math.max(cx + r + 4, hatchEnd + 3);
+      const labelRight = labelX + 54 < width;
       body = (
         <>
           {showsBaseline && row.baselineFinish! >= slice.from && row.baselineFinish! < slice.to && (
@@ -626,7 +700,7 @@ function RowStrip({
             fill={color}
           />
           <text
-            x={labelRight ? cx + r + 4 : cx - r - 4}
+            x={labelRight ? labelX : cx - r - 4}
             y={H / 2 + 3}
             fontSize={8.5}
             fill="#2A211E"
@@ -699,6 +773,16 @@ function RowStrip({
         />
       ))}
       {lines}
+      {opts.includeWorstCase &&
+        worstCaseHatch(
+          row,
+          slice,
+          x,
+          width,
+          !!(opts.highlightCritical && row.critical),
+          row.kind === 'phase' ? 4 : row.kind === 'summary' ? 5 : 4.5,
+          row.kind === 'summary' ? 4 : 7,
+        )}
       {body}
     </svg>
   );
@@ -729,6 +813,23 @@ function Legend({ report }: { report: Report }) {
         </svg>
         Milestone
       </span>
+      {o.includeWorstCase && report.rows.some((r) => r.worstEnd !== null) && (
+        <span>
+          <svg width={22} height={10}>
+            <rect
+              x={0.5}
+              y={1}
+              width={21}
+              height={8}
+              fill="url(#pv-hatch)"
+              stroke="#8C7067"
+              strokeWidth={0.6}
+              strokeDasharray="2 1.5"
+            />
+          </svg>
+          Worst-case extra time
+        </span>
+      )}
       {o.includeBaseline && report.kpis.baselineName && (
         <span>
           <svg width={18} height={6}>

@@ -40,7 +40,8 @@ describe('web page report', () => {
     expect(html).not.toMatch(/https?:\/\//);
     expect(html).not.toMatch(/<link\b/i);
     expect(html).not.toMatch(/<script[^>]+src=/i);
-    expect(html).not.toMatch(/\burl\(/);
+    // Only in-page references such as url(#hatch) are allowed.
+    expect(html).not.toMatch(/\burl\((?!#)/);
     expect(html).not.toMatch(/\b(fetch|XMLHttpRequest|import\()/);
   });
 

@@ -47,6 +47,8 @@ export const EXCEL_DEFAULT_OPTIONS: ReportOptions = { ...DEFAULT_OPTIONS, scope:
  */
 export interface CellStyle {
   fill?: string;
+  /** Diagonal hatching in the fill colour instead of a solid fill (worst-case extra time). */
+  hatch?: boolean;
   color?: string;
   size?: number;
   rotate?: number;
@@ -221,11 +223,14 @@ export function applyStyles(
         let fill: number | undefined;
         let font: number | undefined;
         if (s.fill) {
-          fill = fillIdx.get(s.fill);
+          const fillKey = `${s.fill}|${s.hatch ? 'hatch' : 'solid'}`;
+          fill = fillIdx.get(fillKey);
           if (fill === undefined) {
-            newFills += `<fill><patternFill patternType="solid"><fgColor rgb="${argb(s.fill)}"/><bgColor indexed="64"/></patternFill></fill>`;
+            newFills += s.hatch
+              ? `<fill><patternFill patternType="lightUp"><fgColor rgb="${argb(s.fill)}"/><bgColor rgb="FFFFFFFF"/></patternFill></fill>`
+              : `<fill><patternFill patternType="solid"><fgColor rgb="${argb(s.fill)}"/><bgColor indexed="64"/></patternFill></fill>`;
             fill = fillCount++;
-            fillIdx.set(s.fill, fill);
+            fillIdx.set(fillKey, fill);
           }
         }
         if (s.color || s.size) {
@@ -418,6 +423,13 @@ function summarySheet(project: Project, report: Report, book: StyleBook): XLSX.W
   };
   kv('Project start', () => dateCell(1, k.projectStart));
   kv('Project finish', () => dateCell(1, k.projectFinish));
+  if (k.worstCaseFinish !== null) {
+    kv(
+      'Worst-case finish',
+      () => dateCell(1, k.worstCaseFinish, { color: CRITICAL_COLOR }),
+      `+${k.worstCaseDelay} working days if every task takes its worst-case extra time`,
+    );
+  }
   kv(
     'Baseline finish',
     () =>
@@ -463,6 +475,7 @@ function summarySheet(project: Project, report: Report, book: StyleBook): XLSX.W
     g.set(r++, 1, k.statusCounts[s], book.code({ hAlign: 'left' }, '0'));
   }
 
+  const msWorst = report.milestones.some((m) => m.worstCase !== null);
   section('Milestones');
   header(
     'Milestone',
@@ -472,6 +485,7 @@ function summarySheet(project: Project, report: Report, book: StyleBook): XLSX.W
     'Variance (working days)',
     'Status',
     'Schedule signal',
+    ...(msWorst ? ['Worst case'] : []),
   );
   for (const m of report.milestones) {
     label(0, m.name);
@@ -481,6 +495,7 @@ function summarySheet(project: Project, report: Report, book: StyleBook): XLSX.W
     variance(4, m.variance);
     status(5, m.status);
     signal(6, m.signal);
+    if (msWorst && m.worstCase !== null) dateCell(7, m.worstCase, { color: CRITICAL_COLOR });
     r++;
   }
 
@@ -596,6 +611,21 @@ function tasksSheet(
     },
     { header: 'Start', width: 14, z: DATE_FMT, value: (id) => dateOf(schedule.calc.get(id)?.es) },
     { header: 'Finish', width: 14, z: DATE_FMT, value: (id) => dateOf(byId.get(id)?.finish) },
+    {
+      header: 'Worst case (extra working days)',
+      width: 12,
+      value: (id) => byId.get(id)?.worstCaseDays || '',
+    },
+    {
+      header: 'Finish (worst case)',
+      width: 14,
+      z: DATE_FMT,
+      value: (id) => {
+        const w = byId.get(id)?.worstFinish;
+        return w === null || w === undefined ? '' : dateOf(w);
+      },
+      style: (id) => (byId.get(id)?.worstFinish ? { color: CRITICAL_COLOR } : {}),
+    },
     {
       header: 'Status',
       width: 13,
@@ -760,6 +790,13 @@ function ganttSheet(report: Report, book: StyleBook): XLSX.WorkSheet {
       } else if (row.start < next && row.finish >= d) {
         g.set(r, c, 1, book.code({ fill: color }, 'hide'));
         return;
+      }
+      if (report.options.includeWorstCase && row.worstEnd !== null) {
+        const from = row.kind === 'milestone' ? row.start + 1 : row.finish + 1;
+        if (from < next && row.worstEnd >= d) {
+          g.set(r, c, 1, book.code({ fill: color, hatch: true }, 'hide'));
+          return;
+        }
       }
       if (showBaseline && row.baselineStart! < next && row.baselineFinish! >= d) {
         g.set(r, c, 1, book.code({ fill: BASELINE_COLOR }, 'hide'));

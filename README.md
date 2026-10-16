@@ -60,7 +60,11 @@ download is needed on Windows. Elsewhere, run `npx playwright install chromium` 
 - **Worst case**: give a task extra working days in the Worst case column (or the task dialog /
   bulk edit). The extra time is drawn hatched after the bar and in the tooltip; the plan itself
   does not move. The top bar shows the worst-case project finish (every task overrunning, with
-  knock-on delays), drawn as a dotted red line on the timeline. Toggle with the Worst case button.
+  knock-on delays), drawn as a dotted red line on the timeline. Toggle with the Worst case button. Work tasks show their own extra time; phases, summaries and
+  milestones show how late they could finish if every task overruns. The PDF, Excel and web-page
+  exports include the same hatching, a worst-case finish key figure, a worst-case column for
+  milestones (and, in Excel, for every task); untick "Show worst-case extra time" in the export
+  dialog to leave it out.
 - **Move tasks** up or down with the arrow buttons in the toolbar or Alt+Shift+↑ / ↓. A task
   moves with its subtasks and stays within its parent; use indent/outdent or drag the ID cell to
   move it to another phase.

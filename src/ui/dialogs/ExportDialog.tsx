@@ -294,6 +294,9 @@ export function ExportDialog() {
           <Check checked={options.highlightCritical} onChange={(v) => set('highlightCritical', v)}>
             Highlight the critical path in red
           </Check>
+          <Check checked={options.includeWorstCase} onChange={(v) => set('includeWorstCase', v)}>
+            Show worst-case extra time (hatched) and the worst-case finish
+          </Check>
           {format === 'pdf' && (
             <>
               <Check checked={options.statusColumns} onChange={(v) => set('statusColumns', v)}>

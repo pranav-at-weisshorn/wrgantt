@@ -271,14 +271,19 @@ export function Timeline(props: Props) {
       if (!extra || !c || outline.isSummary(t.id) || c.percentComplete >= 100) continue;
       out.set(t.id, worstCaseEnd(calFor(project, t.calendarId), c.es, c.ef, extra));
     }
-    if (out.size) {
-      for (const id of outline.flat) {
-        if (!outline.isSummary(id)) continue;
-        let end = -Infinity;
+    // Phases, summaries and milestones: how late they could finish if every task overruns.
+    const worst = derived.worst;
+    for (const id of outline.flat) {
+      const c = schedule.calc.get(id);
+      if (!c || c.percentComplete >= 100) continue;
+      const summary = outline.isSummary(id);
+      if (!summary && !c.isMilestone) continue;
+      let end = out.get(id) ?? -Infinity;
+      if (summary)
         for (const l of outline.leavesOf(id)) end = Math.max(end, out.get(l) ?? -Infinity);
-        const c = schedule.calc.get(id);
-        if (c && end > c.ef) out.set(id, end);
-      }
+      const w = worst?.calc.get(id);
+      if (w) end = Math.max(end, c.isMilestone && !summary ? w.es : w.ef);
+      if (end > (c.isMilestone && !summary ? c.es : c.ef)) out.set(id, end);
     }
     return out;
   }, [project, derived, prefs.showWorstCase]);

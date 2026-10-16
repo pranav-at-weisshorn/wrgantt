@@ -11,11 +11,14 @@ import {
   statusOf,
   todayDay,
   varianceSummary,
+  worstCaseEnd,
+  projectCalendarOf,
   type Project,
   type ScheduleHealth,
   type TaskStatus,
 } from '../engine';
 import type { Derived } from '../store/derive';
+import { calFor } from '../ui/cal';
 import { phaseColorOf } from '../ui/rows';
 import { startOfMonth, startOfQuarter, startOfWeek, ticks } from '../ui/timeline/scale';
 
@@ -50,6 +53,8 @@ export interface ReportOptions {
   paper: Paper;
   /** Split layout: leave out rows that have no bar on a page. */
   hideEmptyRows: boolean;
+  /** Show worst-case extra time (hatched) and worst-case dates. */
+  includeWorstCase: boolean;
 }
 
 export const DEFAULT_OPTIONS: ReportOptions = {
@@ -67,6 +72,7 @@ export const DEFAULT_OPTIONS: ReportOptions = {
   monthsPerPage: 6,
   paper: 'A4',
   hideEmptyRows: true,
+  includeWorstCase: true,
 };
 
 /** Scope that suits each format best (the dialog starts from these). */
@@ -142,6 +148,16 @@ export interface ReportRow {
   /** Working days against the active baseline; positive = later. */
   variance: number | null;
   responsible: string;
+  /** Worst-case extra working days of this task (0 for none; summaries 0). */
+  worstCaseDays: number;
+  /**
+   * Inclusive last day of the hatched worst-case extension: a work task's own extra time; for
+   * phases, summaries and milestones the date they could reach if every task overruns
+   * (null when there is nothing past the finish).
+   */
+  worstEnd: number | null;
+  /** Inclusive finish if every task takes its worst-case time (knock-on delays included). */
+  worstFinish: number | null;
 }
 
 export interface ReportSlice {
@@ -174,6 +190,10 @@ export interface ReportKpis {
   signalCounts: Record<ScheduleHealth, number>;
   criticalRemaining: number;
   slippedCount: number;
+  /** Project finish if every task takes its worst-case time (null when none has any). */
+  worstCaseFinish: number | null;
+  /** Working days between the planned and the worst-case finish. */
+  worstCaseDelay: number | null;
 }
 
 export interface MilestoneEntry {
@@ -188,6 +208,8 @@ export interface MilestoneEntry {
   status: TaskStatus;
   signal: ScheduleHealth;
   critical: boolean;
+  /** Date in the worst case (null when it would not move). */
+  worstCase: number | null;
 }
 
 export interface PhaseEntry {
@@ -206,6 +228,8 @@ export interface PhaseEntry {
   variance: number | null;
   taskCount: number;
   critical: boolean;
+  /** Finish in the worst case (null when it would not move). */
+  worstFinish: number | null;
 }
 
 export interface WatchEntry {
@@ -437,7 +461,42 @@ export function buildReport(
       baselineFinish: b ? isoToDay(b.finish) : null,
       variance: finishVariance(project, c, b),
       responsible: t.responsible,
+      worstCaseDays: 0,
+      worstEnd: null,
+      worstFinish: null,
     });
+  }
+
+  // ---- worst case: own hatched extensions, and dates if every task overruns
+  const worstOn = options.includeWorstCase !== false;
+  if (worstOn) {
+    for (const r of all.values()) {
+      if (r.kind === 'phase' || r.kind === 'summary') continue;
+      const t = outline.byId.get(r.id)!;
+      const c = schedule.calc.get(r.id)!;
+      const extra = Math.max(0, Math.round(t.worstCaseDays ?? 0));
+      if (!extra || r.status === 'complete') continue;
+      r.worstCaseDays = extra;
+      r.worstEnd = worstCaseEnd(calFor(project, t.calendarId), c.es, c.ef, extra) - 1;
+    }
+    if (derived.worst) {
+      for (const r of all.values()) {
+        const w = derived.worst.calc.get(r.id);
+        if (w && displayFinishDay(w) > r.finish) r.worstFinish = displayFinishDay(w);
+      }
+    }
+    // Phases, summaries and milestones extend to how late they could finish if every task
+    // overruns (and at least as far as their tasks' own extra time).
+    for (const r of all.values()) {
+      if (r.kind === 'task') continue;
+      let end = r.worstEnd ?? -Infinity;
+      if (r.kind !== 'milestone') {
+        for (const l of outline.leavesOf(r.id))
+          end = Math.max(end, all.get(l)?.worstEnd ?? -Infinity);
+      }
+      end = Math.max(end, r.worstFinish ?? -Infinity);
+      if (end > r.finish) r.worstEnd = end;
+    }
   }
 
   // ---- project extents
@@ -447,10 +506,15 @@ export function buildReport(
     projectStart = Math.min(projectStart, r.start);
     projectFinish = Math.max(projectFinish, r.finish);
   }
+  // The timeline also has to show the worst-case extensions and dates.
+  let extentEnd = projectFinish;
+  for (const r of all.values()) {
+    extentEnd = Math.max(extentEnd, r.worstEnd ?? -Infinity, r.worstFinish ?? -Infinity);
+  }
 
   // ---- date window
   let wFrom = projectStart;
-  let wTo = projectFinish + 1;
+  let wTo = extentEnd + 1;
   if (
     options.range === 'custom' &&
     isValidIso(options.customFrom) &&
@@ -464,7 +528,7 @@ export function buildReport(
     wTo = statusDay + Math.max(1, Math.round(options.lookAheadWeeks)) * 7;
   }
   const windowSet =
-    options.range !== 'project' && (wFrom !== projectStart || wTo !== projectFinish + 1);
+    options.range !== 'project' && (wFrom !== projectStart || wTo !== extentEnd + 1);
   const overlaps = (r: ReportRow, from: number, to: number) => r.start < to && r.finish >= from;
 
   // ---- scope
@@ -543,9 +607,9 @@ export function buildReport(
     }));
   }
 
-  const ovUnit = resolveUnit('auto', projectFinish + 1 - projectStart);
+  const ovUnit = resolveUnit('auto', extentEnd + 1 - projectStart);
   const ovFrom = startOfUnit[ovUnit](projectStart);
-  const ovTo = alignUp(ovUnit, projectFinish + 1);
+  const ovTo = alignUp(ovUnit, extentEnd + 1);
   const overview = { from: ovFrom, to: ovTo, unit: ovUnit, ...makeTicks(ovUnit, ovFrom, ovTo) };
 
   // ---- KPIs
@@ -583,6 +647,14 @@ export function buildReport(
       ? leafRows.reduce((a, r) => a + r.percent, 0) / leafRows.length
       : 0;
   const vs = varianceSummary(project, schedule, outline);
+  let worstCaseFinish: number | null = null;
+  if (worstOn && derived.worst) {
+    for (const c of derived.worst.calc.values()) {
+      worstCaseFinish = Math.max(worstCaseFinish ?? -Infinity, displayFinishDay(c));
+    }
+    if (worstCaseFinish !== null && worstCaseFinish <= projectFinish) worstCaseFinish = null;
+  }
+  const projCal = projectCalendarOf(project);
   const kpis: ReportKpis = {
     projectStart,
     projectFinish,
@@ -597,6 +669,11 @@ export function buildReport(
     signalCounts,
     criticalRemaining,
     slippedCount,
+    worstCaseFinish,
+    worstCaseDelay:
+      worstCaseFinish === null
+        ? null
+        : projCal.cum(worstCaseFinish + 1) - projCal.cum(projectFinish + 1),
   };
 
   // ---- tables
@@ -614,6 +691,7 @@ export function buildReport(
       status: r.status,
       signal: r.signal,
       critical: r.critical,
+      worstCase: r.worstFinish,
     }))
     .sort((a, b) => a.planned - b.planned || a.rowId - b.rowId);
 
@@ -636,6 +714,7 @@ export function buildReport(
       variance: r.variance,
       taskCount: outline.leavesOf(r.id).length,
       critical: outline.leavesOf(r.id).some((l) => all.get(l)?.critical),
+      worstFinish: r.worstFinish,
     }));
 
   const watch = (r: ReportRow): WatchEntry => ({
