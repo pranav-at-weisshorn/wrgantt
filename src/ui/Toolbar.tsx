@@ -185,7 +185,7 @@ export function Toolbar() {
             {(
               [
                 ['atRiskOrLate', 'Schedule: at risk or late'],
-                ['criticalOnly', 'Critical only'],
+                ['criticalOnly', 'Critical path only'],
                 ['slipped', 'Slipped vs. baseline'],
                 ['inProgress', 'In progress'],
                 ['milestones', 'Milestones only'],
@@ -264,6 +264,22 @@ export function Toolbar() {
           </>
         )}
       </Menu>
+      <button
+        className={`btn small${filters.criticalOnly ? ' active' : ''}`}
+        title={
+          filters.criticalOnly
+            ? 'Show all tasks again'
+            : 'Show only the tasks on the critical path and hide everything else'
+        }
+        aria-pressed={filters.criticalOnly}
+        onClick={() => {
+          if (!filters.criticalOnly) s.setPrefs({ showCritical: true });
+          s.setFilters({ criticalOnly: !filters.criticalOnly });
+        }}
+        data-testid="toggle-critical-only"
+      >
+        <Icon name="critical" size={14} /> Critical path only
+      </button>
       <button
         className={`btn small${prefs.showBaseline ? ' active' : ''}`}
         title={project.activeBaselineId ? 'Show baseline bars' : 'No baseline saved yet'}

@@ -36,6 +36,7 @@ const PATHS: Record<string, string> = {
   link: 'M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1',
   calendar: 'M4 5h16v16H4zM4 9h16M8 3v4M16 3v4',
   progress: 'M4 12h6M14 12h6M4 6h16M4 18h9',
+  critical: 'M3 17l6-6 4 4 8-8M15 7h6v6',
   baseline: 'M3 8h12M3 14h18M3 18h8',
 };
 

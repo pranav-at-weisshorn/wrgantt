@@ -105,6 +105,9 @@ download is needed on Windows. Elsewhere, run `npx playwright install chromium` 
   before any restore. Compare a version with the current plan, restore it (undoable) or
   download it.
 - **Links** button: show or hide the link arrows.
+- **Critical path only** button: shows exactly the tasks on the critical path, in order, and
+  hides everything else (phases, summaries and tasks with float). Click again to show all
+  tasks. It only changes the view, never the plan. (Also in Filter → Critical path only.)
 - **File → Export for review…**: PDF, Excel or a web page for phones, with a choice of rows
   (all tasks, phases, phases and milestones, milestones), date range (whole project, custom,
   or a look-ahead of 6/12/26 weeks), time scale, and for PDF whether the timeline fits one page

@@ -94,7 +94,8 @@ export function computeRows(
         if (v === null || v <= 0) continue;
       }
       visible.add(id);
-      for (const a of outline.ancestorsOf(id)) visible.add(a);
+      // Critical path only shows exactly the critical tasks, without their phases.
+      if (!filters.criticalOnly) for (const a of outline.ancestorsOf(id)) visible.add(a);
     }
   }
 
@@ -114,7 +115,7 @@ export function computeRows(
       id,
       task: t,
       calc: schedule.calc.get(id),
-      depth: outline.depth.get(id) ?? 0,
+      depth: filters.criticalOnly ? 0 : (outline.depth.get(id) ?? 0),
       isSummary,
       wbs: outline.wbs.get(id) ?? '',
       collapsed: isCollapsed,
