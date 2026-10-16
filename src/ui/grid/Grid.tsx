@@ -16,8 +16,9 @@ import {
   type Project,
   type TaskStatus,
 } from '../../engine';
-import { workingDaysPerWeek } from '../../engine';
-import type { Derived } from '../../store/derive';
+import { getWorkCalendar, workingDaysPerWeek } from '../../engine';
+import { DatePicker } from './DatePicker';
+import { criticalSummaries, type Derived } from '../../store/derive';
 import {
   indentTask,
   indentTasks,
@@ -93,6 +94,10 @@ export function Grid(props: Props) {
   const setSelection = useStore((s) => s.setSelection);
   const toggleCollapsed = useStore((s) => s.toggleCollapsed);
   const showCritical = useStore((s) => s.prefs.showCritical);
+  const critSummaries = useMemo(
+    () => (showCritical ? criticalSummaries(props.derived) : new Set<string>()),
+    [props.derived, showCritical],
+  );
   const setDialog = useStore((s) => s.setDialog);
   const openContextMenu = useStore((s) => s.openContextMenu);
   const [activeCol, setActiveCol] = useState<ColumnKey>('name');
@@ -288,6 +293,11 @@ export function Grid(props: Props) {
       case 'date':
       case 'finishDate': {
         const iso = parseDateInput(v);
+        if (iso && iso === parseDateInput(original)) {
+          // Same date as shown: nothing to change (no constraint is added).
+          closeEditor();
+          return true;
+        }
         if (!iso) res = { ok: false, error: 'Enter a date such as 2027-01-04 or 04.01.2027' };
         else res = col.edit === 'date' ? setStartDate(row.id, iso) : setFinishDate(row.id, iso);
         break;
@@ -492,7 +502,11 @@ export function Grid(props: Props) {
       cls.push('readonly');
     if (col.key === 'id') cls.push('id');
     if (col.key === 'totalFloat' && row.calc && row.calc.totalFloat < 0) cls.push('neg');
-    if (col.key === 'name' && showCritical && row.calc?.critical && !row.isSummary)
+    if (
+      col.key === 'name' &&
+      showCritical &&
+      (row.isSummary ? critSummaries.has(row.id) : row.calc?.critical)
+    )
       cls.push('crit-name');
 
     let content: React.ReactNode;
@@ -633,6 +647,21 @@ export function Grid(props: Props) {
               aria-label={col.label}
               data-testid={`editor-${col.key}`}
             />
+            {(col.edit === 'date' || col.edit === 'finishDate') && (
+              <DatePicker
+                anchorRef={inputRef}
+                value={parseDateInput(editing.value)}
+                isWorking={(d) => {
+                  const cal =
+                    project.calendars.find((c) => c.id === row.task.calendarId) ??
+                    project.calendars[0];
+                  return cal ? getWorkCalendar(cal).isWorking(d) : true;
+                }}
+                onPick={(iso) => {
+                  if (commitEdit(iso)) focusGrid();
+                }}
+              />
+            )}
           </>
         )}
       </div>

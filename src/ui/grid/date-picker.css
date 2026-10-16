@@ -1,0 +1,66 @@
+/* Month calendar under the Start / Finish cell editor. */
+.date-picker {
+  position: fixed;
+  z-index: 140;
+  width: 252px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-elev);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+}
+.dp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.dp-title {
+  text-transform: uppercase;
+  letter-spacing: var(--track);
+  font-size: 11px;
+}
+.dp-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.dp-wd {
+  text-align: center;
+  font-size: 10px;
+  color: var(--fg-muted);
+  padding: 2px 0 4px;
+}
+.dp-day {
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+.dp-day:hover {
+  background: var(--vf-sandstone-50);
+}
+.dp-day.out {
+  color: var(--fg-faint);
+}
+.dp-day.off {
+  color: var(--fg-faint);
+  text-decoration: line-through;
+}
+.dp-day.today {
+  box-shadow: inset 0 0 0 1px var(--vf-mocca);
+}
+.dp-day.sel {
+  background: var(--accent);
+  color: #fff;
+}
+.dp-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}

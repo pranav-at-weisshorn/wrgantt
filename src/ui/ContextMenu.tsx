@@ -17,11 +17,14 @@ import {
   setDuration,
   setStatus,
   type InsertPosition,
+  setTaskColour,
 } from '../store/ops';
 import { useStore } from '../store/store';
 import { confirmDeleteTasks } from './actions';
 import { Icon, type IconName } from './icons';
 import { StatusChip } from './StatusChip';
+import { pastel, TASK_COLOURS } from './palette';
+import './colour.css';
 
 interface Item {
   label: string;
@@ -256,9 +259,19 @@ export function ContextMenu() {
           ? `${n} tasks selected`
           : `${task.rowId} · ${task.name.length > 34 ? `${task.name.slice(0, 33)}…` : task.name}`}
       </div>
-      {(bulk ? bulkGroups : groups).map((g, gi) => (
+      {(bulk ? bulkGroups : groups).map((g, gi, all) => (
         <div key={gi}>
           {gi > 0 && <hr />}
+          {gi === all.length - 1 && (
+            <>
+              <ColourRow
+                ids={bulk ? selectedIds : [id]}
+                current={bulk ? undefined : task.phaseColor}
+                onDone={() => close(null)}
+              />
+              <hr />
+            </>
+          )}
           {g.map((it) => (
             <Fragment key={it.label}>
               {it.heading && <div className="menu-title">{it.heading}</div>}
@@ -294,6 +307,37 @@ export function ContextMenu() {
           ))}
         </div>
       ))}
+    </div>
+  );
+}
+
+/** Colour swatches for the right-click menu; the check marks the task's own colour. */
+function ColourRow(props: { ids: string[]; current: string | undefined; onDone: () => void }) {
+  const pick = (hex: string | null, label: string) => {
+    props.onDone();
+    setTaskColour(props.ids, hex, label);
+  };
+  return (
+    <div className="colour-row" role="group" aria-label="Colour">
+      <div className="menu-title">Colour</div>
+      <div className="swatches">
+        {TASK_COLOURS.map((c) => (
+          <button
+            key={c.hex}
+            className={`swatch-btn${props.current?.toLowerCase() === c.hex ? ' on' : ''}`}
+            style={{ background: pastel(c.hex), borderColor: c.hex }}
+            title={c.name}
+            aria-label={`Colour ${c.name}`}
+            onClick={() => pick(c.hex, c.name)}
+          />
+        ))}
+      </div>
+      <button className="auto-colour" onClick={() => pick(null, 'automatic')}>
+        <span className="check">
+          {props.current === undefined && props.ids.length === 1 ? '✓' : ''}
+        </span>
+        Automatic (same as the parent)
+      </button>
     </div>
   );
 }

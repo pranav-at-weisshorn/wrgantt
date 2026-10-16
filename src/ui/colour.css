@@ -1,0 +1,37 @@
+/* Colour swatches (right-click menu and task dialog). */
+.colour-row {
+  padding: 2px 0 2px;
+}
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(8, 22px);
+  gap: 6px;
+  padding: 4px 8px 6px;
+}
+.swatch-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.menu .swatch-btn {
+  display: block;
+  width: 22px;
+  padding: 0;
+  border-radius: 999px;
+}
+.swatch-btn:hover,
+.swatch-btn:focus-visible {
+  outline: 2px solid var(--vf-dark-wood);
+  outline-offset: 1px;
+}
+.swatch-btn.on {
+  outline: 2px solid var(--vf-dark-wood);
+  outline-offset: 2px;
+}
+.menu .auto-colour .check {
+  width: 14px;
+  text-align: center;
+}

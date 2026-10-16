@@ -37,3 +37,21 @@ export function derive(project: Project, outline?: Outline): Derived {
   }
   return d;
 }
+
+/**
+ * Summaries whose unfinished subtasks are all on the critical path; their collapsed bar is drawn
+ * red. (Finished subtasks are ignored; a summary with nothing left to do is not red.)
+ */
+export function criticalSummaries(d: Derived): Set<string> {
+  const out = new Set<string>();
+  const { outline, schedule } = d;
+  for (const id of outline.flat) {
+    if (!outline.isSummary(id)) continue;
+    const open = outline
+      .leavesOf(id)
+      .map((l) => schedule.calc.get(l))
+      .filter((c) => c !== undefined && c.percentComplete < 100);
+    if (open.length && open.every((c) => c!.critical)) out.add(id);
+  }
+  return out;
+}

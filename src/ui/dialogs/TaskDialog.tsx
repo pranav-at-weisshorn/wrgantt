@@ -19,7 +19,9 @@ import {
   type TaskStatus,
 } from '../../engine';
 import { derive } from '../../store/derive';
-import { normaliseStatus, quoted, statusFields } from '../../store/ops';
+import { applyColourInDraft, normaliseStatus, quoted, statusFields } from '../../store/ops';
+import { colourName, pastel, TASK_COLOURS } from '../palette';
+import '../colour.css';
 import { useStore } from '../../store/store';
 import { fmtDay, parseDuration } from '../format';
 import { workingDaysPerWeek } from '../../engine';
@@ -47,6 +49,7 @@ export function TaskDialog({ taskId, tab: initialTab }: { taskId: string; tab?: 
   const [tab, setTab] = useState<Tab>(initialTab ?? 'general');
   const [form, setForm] = useState(() => ({
     name: task?.name ?? '',
+    colour: task?.phaseColor ?? '',
     duration: String(task?.duration ?? 0),
     worstCase: String(task?.worstCaseDays ?? 0),
     calendarId: task?.calendarId ?? project.projectCalendarId,
@@ -122,6 +125,8 @@ export function TaskDialog({ taskId, tab: initialTab }: { taskId: string; tab?: 
       (d) => {
         const t = d.tasks.find((x) => x.id === taskId) as Draft<Task>;
         t.name = form.name.trim() || 'Untitled';
+        if ((form.colour || undefined) !== t.phaseColor)
+          applyColourInDraft(d, taskId, form.colour || null);
         t.responsible = form.responsible.trim();
         t.notes = form.notes;
         if (!isSummary) {
@@ -399,6 +404,44 @@ export function TaskDialog({ taskId, tab: initialTab }: { taskId: string; tab?: 
                 />
               )}
               {c?.constraintViolated && <span className="err">Conflicts with logic</span>}
+            </div>
+            <label>Colour</label>
+            <div>
+              <div
+                className="swatches"
+                style={{ padding: '2px 0' }}
+                role="radiogroup"
+                aria-label="Colour"
+              >
+                {TASK_COLOURS.map((c) => (
+                  <button
+                    key={c.hex}
+                    type="button"
+                    role="radio"
+                    aria-checked={form.colour === c.hex}
+                    className={`swatch-btn${form.colour === c.hex ? ' on' : ''}`}
+                    style={{ background: pastel(c.hex), borderColor: c.hex }}
+                    title={c.name}
+                    aria-label={c.name}
+                    onClick={() => set({ colour: c.hex })}
+                  />
+                ))}
+              </div>
+              <div className="row-inline">
+                <span className="hint">
+                  {form.colour ? colourName(form.colour) : 'Automatic: the same as the parent task'}
+                  {isSummary ? ' · subtasks follow this colour' : ''}
+                </span>
+                {form.colour && (
+                  <button
+                    type="button"
+                    className="btn small ghost"
+                    onClick={() => set({ colour: '' })}
+                  >
+                    Use automatic
+                  </button>
+                )}
+              </div>
             </div>
             <label htmlFor="td-resp">Responsible</label>
             <input

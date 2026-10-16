@@ -22,7 +22,7 @@ import {
   todayDay,
   type Project,
 } from '../../engine';
-import type { Derived } from '../../store/derive';
+import { criticalSummaries, type Derived } from '../../store/derive';
 import { addLink, setDuration, setStartDate } from '../../store/ops';
 import { ZOOMS } from '../../store/prefs';
 import { useStore } from '../../store/store';
@@ -260,6 +260,12 @@ export function Timeline(props: Props) {
   };
 
   const visibleRows = rows.slice(first, last + 1);
+
+  // Summaries whose unfinished tasks are all on the critical path are drawn red.
+  const allCritical = useMemo(
+    () => (prefs.showCritical ? criticalSummaries(derived) : new Set<string>()),
+    [derived, prefs.showCritical],
+  );
 
   const worstEnds = useMemo(() => {
     const out = new Map<string, number>();
@@ -541,6 +547,7 @@ export function Timeline(props: Props) {
               critStyle={prefs.criticalStyle}
               showLabel={prefs.showLabels}
               worstEnd={worstEnds.get(row.id)}
+              summaryCritical={allCritical.has(row.id)}
               onPointerDown={startDrag}
               onPressSummary={pressSummary}
               onDoubleClick={(id) => setDialog({ kind: 'task', taskId: id })}
@@ -650,6 +657,8 @@ interface BarRowProps {
   showLabel: boolean;
   /** Exclusive end of the worst-case extension (hatched), if any. */
   worstEnd?: number;
+  /** A summary whose unfinished tasks are all critical: drawn red. */
+  summaryCritical?: boolean;
   onPointerDown: (e: React.PointerEvent, row: Row, kind: 'move' | 'resize' | 'link') => void;
   onPressSummary: (e: React.PointerEvent, row: Row) => void;
   onDoubleClick: (id: string) => void;
@@ -747,7 +756,12 @@ const BarRow = memo(function BarRow(p: BarRowProps) {
       >
         {blEl}
         {hatchEl}
-        <path className="bar summary bar-outline" d={d} fill="var(--summary)" />
+        <path
+          className="bar summary bar-outline"
+          d={d}
+          fill={p.summaryCritical ? 'var(--crit)' : 'var(--summary)'}
+          data-critical={p.summaryCritical ? 'true' : undefined}
+        />
         {label}
       </g>
     );

@@ -92,6 +92,32 @@ export function renameTask(id: string, name: string) {
 }
 
 /** Worst-case extra working days for a task (0 removes them). */
+/**
+ * Give tasks a colour (or `null` for automatic: inherit from the parent). Subtasks follow their
+ * parent, so any colour set on a subtask of a recoloured task is cleared. One undo step.
+ */
+export function setTaskColour(ids: string[], colour: string | null, colourLabel: string) {
+  const p = st().project;
+  if (!p || !ids.length) return { ok: false };
+  const roots = selectionRoots(p, ids);
+  const what = roots.length === 1 ? nameOf(roots[0]) : `${roots.length} tasks`;
+  return st().commit(`Colour of ${what}: ${colourLabel}`, (d) => {
+    for (const id of roots) applyColourInDraft(d, id, colour);
+  });
+}
+
+/** Set a task's colour in a draft and clear its subtasks' own colours so they follow it. */
+export function applyColourInDraft(d: Draft<Project>, id: string, colour: string | null) {
+  const t = findTask(d, id);
+  if (colour) t.phaseColor = colour;
+  else delete t.phaseColor;
+  for (const x of descendantIds(d, id)) {
+    if (x === id) continue;
+    const sub = d.tasks.find((k) => k.id === x);
+    if (sub) delete sub.phaseColor;
+  }
+}
+
 export function setWorstCase(id: string, extra: number) {
   const n = Math.max(0, Math.round(extra));
   return st().commit(

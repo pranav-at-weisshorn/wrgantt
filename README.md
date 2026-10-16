@@ -14,7 +14,14 @@ The interface follows the Villa Felstead brand guidelines: GT Standard (Regular)
 the Interior warmth / Sandstone / Glacier white palette with Dark wood rules, uppercase tracked
 labels and pill-shaped buttons. GT Standard is used **from the fonts installed on the computer**
 (no font file is bundled, so no web licence is needed); a computer without it falls back to
-Helvetica or Arial. Phase bars use muted earth tones; the critical path stays red.
+Helvetica or Arial. Bars are drawn in soft pastels; the critical path stays red.
+
+- **Colours**: right-click a task (or a selection) and pick one of 16 pastel colours, or set it
+  in the task dialog. Subtasks take their parent's colour automatically; colouring a parent
+  resets the colours of everything under it, and a subtask can then be given its own colour.
+  _Automatic (same as the parent)_ removes a task's own colour. One undo step.
+- **Critical summaries**: when every unfinished subtask of a phase or summary is on the critical
+  path, its bar (also when collapsed) and its name are drawn red instead of black.
 
 ## Running it
 
@@ -73,7 +80,9 @@ download is needed on Windows. Elsewhere, run `npx playwright install chromium` 
   (asks first if the task has subtasks or links), Ctrl+Z / Ctrl+Shift+Z undo / redo. Drag the ID
   cell to move a row (drop on the top or bottom edge of a row to place it before/after, on the
   middle to make it a subtask).
-- **Dates**: typing a Start date sets a _Start No Earlier Than_ constraint, typing a Finish date a
+- **Dates**: double-click a Start or Finish cell to open a calendar under it: click a day, or
+  type a date (2027-01-04, 04.01.2027, …) and press Enter. Picking the date already shown
+  changes nothing. Choosing a Start date sets a _Start No Earlier Than_ constraint, typing a Finish date a
   _Finish No Earlier Than_ constraint (shown by the pin icon). Other constraints are set in the
   task dialog (double-click a bar or a read-only cell).
 - **Timeline**: drag a bar to move it (sets SNET), drag its right edge to change the duration,
