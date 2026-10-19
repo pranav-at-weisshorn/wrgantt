@@ -102,6 +102,26 @@ export function Timeline(props: Props) {
     return () => ro.disconnect();
   }, [bodyRef]);
 
+  // Width of the top-row labels (month / year), so a label pinned to the left edge stops at the
+  // end of its own period instead of running into the next one.
+  const [topFont, setTopFont] = useState('');
+  useLayoutEffect(() => {
+    const read = () => {
+      const el = headerRef.current?.querySelector('.top text');
+      if (!el) return;
+      const cs = getComputedStyle(el);
+      setTopFont(`${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`);
+    };
+    read();
+    // Measure again once the web font has loaded (its widths differ from the fallback's).
+    void document.fonts.ready.then(read);
+  }, []);
+  const measureTop = useMemo(() => {
+    const ctx = document.createElement('canvas').getContext('2d');
+    if (ctx && topFont) ctx.font = topFont;
+    return (text: string) => (ctx && topFont ? ctx.measureText(text).width : text.length * 7.5);
+  }, [topFont]);
+
   const onScroll = (e: UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     if (headerRef.current) headerRef.current.scrollLeft = el.scrollLeft;
@@ -397,14 +417,23 @@ export function Timeline(props: Props) {
       <div className="pane-header" ref={headerRef} style={{ height: HEADER_H }}>
         <svg className="tl-svg tl-header" width={scale.width} height={HEADER_H}>
           <g className="top">
-            {topTicks.map((t) => (
-              <g key={t.day}>
-                <line x1={scale.x(t.day)} x2={scale.x(t.day)} y1={0} y2={HEADER_H} />
-                <text x={Math.max(scale.x(t.day), scrollLeft) + 4} y={16}>
-                  {t.label}
-                </text>
-              </g>
-            ))}
+            {topTicks.map((t) => {
+              const x0 = scale.x(t.day);
+              const x1 = scale.x(t.end);
+              const w = measureTop(t.label);
+              // Pinned to the visible left edge, but never past the end of its own period.
+              const x = Math.min(Math.max(x0, scrollLeft) + 4, x1 - w - 6);
+              return (
+                <g key={t.day}>
+                  <line x1={x0} x2={x0} y1={0} y2={HEADER_H} />
+                  {x1 - x0 >= w + 10 && (
+                    <text x={x} y={16}>
+                      {t.label}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
           </g>
           <line x1={0} x2={scale.width} y1={22.5} y2={22.5} />
           {bottomTicks.map((t) => {
