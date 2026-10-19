@@ -126,6 +126,23 @@ To publish a new version: `npx vercel deploy --prod` in this folder (signed in o
   against the baseline, milestones, phases and a watch list. Also: `.gantt.json` and Microsoft
   Project XML export, and import of a `.gantt.json` or CSV as a new project.
 
+## Old design comparison
+
+`tools/compare/` compares the old Excel schedule (its "Schedule" tab, Actual / Forecast dates)
+with a planner project. Both inputs are only read. Run from this folder:
+
+```bash
+node tools/compare/run.mjs tools/compare/main.ts --old "<old schedule.xlsx>" --plan "../<project>.gantt.json"
+```
+
+It writes to `../Comparison/`:
+
+- `Old vs new design - matching.xlsx`: which old activity is which new task. Drafted on the
+  first run, then **only read** (never overwritten), so edit it freely; see its "How to edit"
+  tab. Delete it to get a fresh draft.
+- `Old vs new design - comparison.xlsx`: key dates, by phase, all lines, a two-bar Gantt (old
+  vs new) and notes, regenerated on every run.
+
 ## Keeping your data safe
 
 - Click **Not saved to a folder** (top right) or **Save projects to a folder…** on the start
