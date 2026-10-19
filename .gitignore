@@ -6,3 +6,6 @@ playwright-report
 *.local
 .vite
 .vercel
+
+.vercel
+.env*
