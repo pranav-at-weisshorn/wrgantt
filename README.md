@@ -46,6 +46,17 @@ The Playwright test uses the installed Microsoft Edge (`channel: 'msedge'`), so 
 download is needed on Windows. Elsewhere, run `npx playwright install chromium` and set
 `PW_CHANNEL=chromium`.
 
+## Online version
+
+The app is published at **https://villa-felstead-planner.vercel.app** (Vercel project
+`villa-felstead-planner`). Only the app's code is published; projects stay in your browser and
+your project folder. To use your projects there, open the site in Edge or Chrome, click
+**Save projects to a folder…** and choose the same folder: its `.gantt.json` files are imported.
+Edit a project in one place only (the site or `localhost`), as the two do not lock each other.
+
+To publish a new version: `npx vercel deploy --prod` in this folder (signed in once with
+`npx vercel login`). `.vercelignore` keeps local files (`.env*`, project files) out of the upload.
+
 ## Using it
 
 - **Projects**: the start page lists saved projects. _New project from template_ creates the
